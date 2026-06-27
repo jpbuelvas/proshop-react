@@ -1,7 +1,6 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 
 import { THEME } from "../data/products";
-import { useCountdown } from "../hooks/useCountdown";
 import Media from "./Media";
 import ProductCard from "./ProductCard";
 
@@ -106,85 +105,92 @@ function ArrowButton({ children, onClick }) {
   );
 }
 
-const COUNTDOWN_DATE = "2026-07-26";
+function Hero({ onCta, onCta2 }) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-function Hero({ onCta, onCta2, countdown }) {
-  const countdownLabel = `REMATE DE TEMPORADA · ${COUNTDOWN_DATE.split("-").reverse().join(".")}`;
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   return (
     <section
       style={{
         position: "relative",
         display: "grid",
-        gridTemplateColumns: "22fr 56fr 22fr",
-        minHeight: "92vh",
+        gridTemplateColumns: isMobile ? "1fr" : "22fr 56fr 22fr",
+        minHeight: isMobile ? "85svh" : "92vh",
         overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          background: "#090909",
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          padding: "clamp(22px, 3.5vw, 44px)",
-          overflow: "hidden",
-          borderRight: "1px solid rgba(255,255,255,0.05)",
-        }}
-      >
+      {!isMobile && (
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "repeating-linear-gradient(-55deg, transparent, transparent 28px, rgba(255,255,255,0.013) 28px, rgba(255,255,255,0.018) 30px)",
-            pointerEvents: "none",
+            background: "#090909",
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            padding: "clamp(22px, 3.5vw, 44px)",
+            overflow: "hidden",
+            borderRight: "1px solid rgba(255,255,255,0.05)",
           }}
-        />
-        <div style={{ position: "relative", zIndex: 1 }}>
+        >
           <div
             style={{
-              fontSize: 9.5,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.22)",
-              fontWeight: 700,
-              marginBottom: 10,
+              position: "absolute",
+              inset: 0,
+              background:
+                "repeating-linear-gradient(-55deg, transparent, transparent 28px, rgba(255,255,255,0.013) 28px, rgba(255,255,255,0.018) 30px)",
+              pointerEvents: "none",
             }}
-          >
-            COLECCIÓN
+          />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div
+              style={{
+                fontSize: 9.5,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.22)",
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              COLECCIÓN
+            </div>
+            <div
+              style={{
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(2.8rem, 5vw, 5rem)",
+                color: "rgba(255,255,255,0.07)",
+                lineHeight: 0.88,
+                letterSpacing: "-0.02em",
+                textTransform: "uppercase",
+              }}
+            >
+              2026
+            </div>
           </div>
-          <div
-            style={{
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(2.8rem, 5vw, 5rem)",
-              color: "rgba(255,255,255,0.07)",
-              lineHeight: 0.88,
-              letterSpacing: "-0.02em",
-              textTransform: "uppercase",
-            }}
-          >
-            2026
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div
+              style={{
+                writingMode: "vertical-rl",
+                transform: "rotate(180deg)",
+                fontSize: 9.5,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.2)",
+                fontWeight: 700,
+                height: 130,
+              }}
+            >
+              ROPA DEPORTIVA
+            </div>
           </div>
         </div>
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <div
-            style={{
-              writingMode: "vertical-rl",
-              transform: "rotate(180deg)",
-              fontSize: 9.5,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.2)",
-              fontWeight: 700,
-              height: 130,
-            }}
-          >
-            ROPA DEPORTIVA
-          </div>
-        </div>
-      </div>
+      )}
 
       <div
         style={{
@@ -194,10 +200,11 @@ function Hero({ onCta, onCta2, countdown }) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding:
-            "clamp(40px, 6vw, 80px) clamp(24px, 4vw, 52px) clamp(130px, 15vw, 190px)",
+          padding: isMobile
+            ? "clamp(48px, 10vw, 72px) clamp(24px, 6vw, 48px)"
+            : "clamp(40px, 6vw, 80px) clamp(24px, 4vw, 52px)",
           overflow: "hidden",
-          borderRight: "1px solid rgba(255,255,255,0.05)",
+          borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.05)",
         }}
       >
         <div
@@ -216,26 +223,26 @@ function Hero({ onCta, onCta2, countdown }) {
             right: "-6%",
             top: "50%",
             transform: "translateY(-50%)",
-            width: "66%",
+            width: isMobile ? "90%" : "66%",
             opacity: 0.04,
             pointerEvents: "none",
             zIndex: 1,
             filter: "grayscale(1)",
           }}
         >
-          <Media src="/proshopLogo.png" alt="" />
+          <Media src="/proshopLogo.avif" alt="" />
         </div>
         <div
           className="hero-animate"
-          style={{ position: "relative", zIndex: 3, textAlign: "center" }}
+          style={{ position: "relative", zIndex: 3, textAlign: "center", width: "100%" }}
         >
           <div
             style={{
               color: "rgba(255,255,255,0.28)",
-              fontSize: 10.5,
-              letterSpacing: "0.28em",
+              fontSize: isMobile ? 9.5 : 10.5,
+              letterSpacing: "0.22em",
               textTransform: "uppercase",
-              marginBottom: 22,
+              marginBottom: 18,
               fontWeight: 700,
             }}
           >
@@ -245,13 +252,14 @@ function Hero({ onCta, onCta2, countdown }) {
             style={{
               fontFamily: "'Barlow Condensed', sans-serif",
               fontWeight: 900,
-              fontSize: "clamp(4.5rem, 9vw, 9.5rem)",
-              lineHeight: 0.85,
+              fontSize: isMobile
+                ? "clamp(3.2rem, 16vw, 5.5rem)"
+                : "clamp(4.5rem, 9vw, 9.5rem)",
+              lineHeight: 0.88,
               letterSpacing: "-0.02em",
               textTransform: "uppercase",
               color: "#fff",
-              margin: "0 0 24px",
-              textWrap: "balance",
+              margin: "0 0 20px",
             }}
           >
             EQUÍPATE
@@ -263,10 +271,10 @@ function Hero({ onCta, onCta2, countdown }) {
           <p
             style={{
               color: "rgba(255,255,255,0.48)",
-              fontSize: "clamp(13px, 1.5vw, 15.5px)",
+              fontSize: isMobile ? 14 : "clamp(13px, 1.5vw, 15.5px)",
               lineHeight: 1.65,
               maxWidth: "34ch",
-              margin: "0 auto 32px",
+              margin: "0 auto 28px",
             }}
           >
             Ropa deportiva, audio premium y accesorios para rendir al máximo.
@@ -274,9 +282,10 @@ function Hero({ onCta, onCta2, countdown }) {
           <div
             style={{
               display: "flex",
+              flexDirection: isMobile ? "column" : "row",
               gap: 10,
               justifyContent: "center",
-              flexWrap: "wrap",
+              alignItems: "center",
             }}
           >
             <button
@@ -291,6 +300,7 @@ function Hero({ onCta, onCta2, countdown }) {
                 padding: "15px 32px",
                 border: "2px solid #fff",
                 transition: "background 0.12s",
+                width: isMobile ? "100%" : undefined,
               }}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.background = "#e8e8e8")
@@ -311,6 +321,7 @@ function Hero({ onCta, onCta2, countdown }) {
                 textTransform: "uppercase",
                 padding: "15px 32px",
                 transition: "all 0.12s",
+                width: isMobile ? "100%" : undefined,
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = "rgba(255,255,255,0.8)";
@@ -327,157 +338,73 @@ function Hero({ onCta, onCta2, countdown }) {
         </div>
       </div>
 
-      <div
-        style={{
-          background: "#0c0c14",
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          padding: "clamp(22px, 3.5vw, 44px)",
-          overflow: "hidden",
-        }}
-      >
+      {!isMobile && (
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse 80% 60% at 70% 30%, rgba(80,40,200,0.1), transparent)",
-            pointerEvents: "none",
-          }}
-        />
-        <div style={{ position: "relative", zIndex: 1, textAlign: "right" }}>
-          <div
-            style={{
-              fontSize: 9.5,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.22)",
-              fontWeight: 700,
-              marginBottom: 4,
-            }}
-          >
-            REMATE
-          </div>
-          <div
-            style={{
-              fontSize: 9.5,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.22)",
-              fontWeight: 700,
-            }}
-          >
-            26.07.2026
-          </div>
-        </div>
-        <div style={{ position: "relative", zIndex: 1, textAlign: "right" }}>
-          <div
-            style={{
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(1.5rem, 3vw, 2.8rem)",
-              color: "rgba(255,255,255,0.08)",
-              textTransform: "uppercase",
-              lineHeight: 0.9,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            AUDIO
-            <br />
-            ACCESORIOS
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 6,
-          pointerEvents: "none",
-          padding: "0 clamp(22px, 3.5vw, 44px) clamp(14px, 2vw, 24px)",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 10,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.28)",
-            fontWeight: 700,
-            marginBottom: 8,
-          }}
-        >
-          {countdownLabel}
-        </div>
-        <div
-          style={{
+            background: "#0c0c14",
+            position: "relative",
             display: "flex",
-            alignItems: "flex-start",
-            gap: "clamp(8px, 1.8vw, 24px)",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            padding: "clamp(22px, 3.5vw, 44px)",
+            overflow: "hidden",
           }}
         >
-          <CountUnit value={countdown.d} label="DÍAS" />
-          <Sep>·</Sep>
-          <CountUnit value={countdown.h} label="HORAS" />
-          <Sep>·</Sep>
-          <CountUnit value={countdown.m} label="MIN" />
-          <Sep>·</Sep>
-          <CountUnit value={countdown.s} label="SEG" />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(ellipse 80% 60% at 70% 30%, rgba(80,40,200,0.1), transparent)",
+              pointerEvents: "none",
+            }}
+          />
+          <div style={{ position: "relative", zIndex: 1, textAlign: "right" }}>
+            <div
+              style={{
+                fontSize: 9.5,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.22)",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              REMATE
+            </div>
+            <div
+              style={{
+                fontSize: 9.5,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.22)",
+                fontWeight: 700,
+              }}
+            >
+              26.07.2026
+            </div>
+          </div>
+          <div style={{ position: "relative", zIndex: 1, textAlign: "right" }}>
+            <div
+              style={{
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(1.5rem, 3vw, 2.8rem)",
+                color: "rgba(255,255,255,0.08)",
+                textTransform: "uppercase",
+                lineHeight: 0.9,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              AUDIO
+              <br />
+              ACCESORIOS
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </section>
-  );
-}
-
-function CountUnit({ value, label }) {
-  return (
-    <div>
-      <div
-        style={{
-          fontFamily: "'Barlow Condensed', sans-serif",
-          fontWeight: 900,
-          fontSize: "clamp(3.5rem, 8vw, 10rem)",
-          color: "rgba(255,255,255,0.88)",
-          lineHeight: 1,
-          letterSpacing: "-0.02em",
-        }}
-      >
-        {value}
-      </div>
-      <div
-        style={{
-          fontSize: 8.5,
-          letterSpacing: "0.2em",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          color: "rgba(255,255,255,0.3)",
-        }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function Sep({ children }) {
-  return (
-    <div
-      style={{
-        fontFamily: "'Barlow Condensed', sans-serif",
-        fontWeight: 900,
-        fontSize: "clamp(3.5rem, 8vw, 10rem)",
-        color: "rgba(255,255,255,0.16)",
-        lineHeight: 1,
-      }}
-    >
-      {children}
-    </div>
   );
 }
 
@@ -498,13 +425,11 @@ export default function Home({ data }) {
     onHeroCta,
     onHeroCta2,
     onCampaignShop,
-    countdownDate,
   } = data;
-  const countdown = useCountdown(countdownDate);
 
   return (
     <>
-      <Hero onCta={onHeroCta} onCta2={onHeroCta2} countdown={countdown} />
+      <Hero onCta={onHeroCta} onCta2={onHeroCta2} />
 
       <section
         style={{ background: "#fff", padding: "clamp(40px, 6vw, 68px) 0 0" }}
@@ -785,7 +710,7 @@ export default function Home({ data }) {
             filter: "grayscale(1)",
           }}
         >
-          <Media src="/proshopLogo.png" alt="" />
+          <Media src="/proshopLogo.avif" alt="" />
         </div>
         <div
           style={{
