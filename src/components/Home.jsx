@@ -4,7 +4,58 @@ import { THEME } from "../data/products";
 import Media from "./Media";
 import ProductCard from "./ProductCard";
 
-function Carousel({ items, cardRef }) {
+function useReveal(threshold = 0.15) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add("is-visible");
+          obs.disconnect();
+        }
+      },
+      { threshold }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return ref;
+}
+
+const TruckIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="1" y="3" width="15" height="13" rx="1"/>
+    <path d="m16 8 4 0 3 6v3h-7V8z"/>
+    <circle cx="5.5" cy="18.5" r="2.5"/>
+    <circle cx="18.5" cy="18.5" r="2.5"/>
+  </svg>
+);
+
+const ReturnIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+    <path d="M3 3v5h5"/>
+  </svg>
+);
+
+const ShieldIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    <polyline points="9 12 11 14 15 10"/>
+  </svg>
+);
+
+const StarIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+  </svg>
+);
+
+const TRUST_ICONS = [TruckIcon, ReturnIcon, ShieldIcon, StarIcon];
+
+function Carousel({ items }) {
   const ref = useRef(null);
   const drag = useRef(null);
 
@@ -119,7 +170,7 @@ function Hero({ onCta, onCta2 }) {
       style={{
         position: "relative",
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "22fr 56fr 22fr",
+        gridTemplateColumns: isMobile ? "1fr" : "22fr 78fr",
         minHeight: isMobile ? "85svh" : "92vh",
         overflow: "hidden",
       }}
@@ -338,72 +389,6 @@ function Hero({ onCta, onCta2 }) {
         </div>
       </div>
 
-      {!isMobile && (
-        <div
-          style={{
-            background: "#0c0c14",
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            padding: "clamp(22px, 3.5vw, 44px)",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "radial-gradient(ellipse 80% 60% at 70% 30%, rgba(80,40,200,0.1), transparent)",
-              pointerEvents: "none",
-            }}
-          />
-          <div style={{ position: "relative", zIndex: 1, textAlign: "right" }}>
-            <div
-              style={{
-                fontSize: 9.5,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.22)",
-                fontWeight: 700,
-                marginBottom: 4,
-              }}
-            >
-              REMATE
-            </div>
-            <div
-              style={{
-                fontSize: 9.5,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.22)",
-                fontWeight: 700,
-              }}
-            >
-              26.07.2026
-            </div>
-          </div>
-          <div style={{ position: "relative", zIndex: 1, textAlign: "right" }}>
-            <div
-              style={{
-                fontFamily: "'Barlow Condensed', sans-serif",
-                fontWeight: 900,
-                fontSize: "clamp(1.5rem, 3vw, 2.8rem)",
-                color: "rgba(255,255,255,0.08)",
-                textTransform: "uppercase",
-                lineHeight: 0.9,
-                letterSpacing: "-0.01em",
-              }}
-            >
-              AUDIO
-              <br />
-              ACCESORIOS
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
@@ -427,10 +412,17 @@ export default function Home({ data }) {
     onCampaignShop,
   } = data;
 
+  const editRevealRef = useReveal();
+  const spotlightRevealRef = useReveal();
+  const campaignRevealRef = useReveal();
+  const offersRevealRef = useReveal();
+  const bestRevealRef = useReveal();
+
   return (
     <>
       <Hero onCta={onHeroCta} onCta2={onHeroCta2} />
 
+      {/* Editorial carousel */}
       <section
         style={{ background: "#fff", padding: "clamp(40px, 6vw, 68px) 0 0" }}
       >
@@ -443,6 +435,8 @@ export default function Home({ data }) {
           }}
         >
           <div
+            ref={editRevealRef}
+            className="reveal"
             style={{
               display: "flex",
               alignItems: "flex-end",
@@ -513,6 +507,7 @@ export default function Home({ data }) {
                   background: et.active ? "#111" : "transparent",
                   color: et.active ? "#fff" : "#111",
                   transition: "all 0.14s",
+                  boxShadow: et.active ? "inset 0 -3px 0 #c8102e" : "none",
                 }}
               >
                 {et.label}
@@ -523,19 +518,57 @@ export default function Home({ data }) {
         <Carousel items={editItems} />
       </section>
 
+      {/* Audio Spotlight */}
       <section
         style={{
           background: "#111",
           color: "#fff",
           padding: "clamp(52px, 8vw, 96px) 0",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
+        {/* Diagonal stripe — textura de marca */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "repeating-linear-gradient(-55deg, transparent, transparent 36px, rgba(255,255,255,0.012) 36px, rgba(255,255,255,0.016) 39px)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+        {/* Vignette — oscurece bordes, concentra la mirada en el contenido */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(ellipse 75% 75% at 50% 50%, transparent 35%, rgba(0,0,0,0.52) 100%)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+        {/* Halo frío desde la derecha — sugiere presencia del producto */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(ellipse 55% 80% at 88% 50%, rgba(38,20,150,0.1), transparent)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
         <div
           style={{
             width: "100%",
             maxWidth: 1240,
             margin: "0 auto",
             padding: "0 clamp(24px, 5vw, 60px)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div
@@ -546,7 +579,7 @@ export default function Home({ data }) {
               alignItems: "center",
             }}
           >
-            <div>
+            <div ref={spotlightRevealRef} className="reveal">
               <span
                 style={{
                   display: "inline-block",
@@ -678,40 +711,16 @@ export default function Home({ data }) {
         </div>
       </section>
 
+      {/* Campaign banner — white background breaks consecutive dark sections */}
       <section
         style={{
-          background: "#111",
-          color: "#fff",
+          background: "#fff",
+          color: "#111",
           overflow: "hidden",
           position: "relative",
-          borderTop: "1px solid rgba(255,255,255,0.06)",
+          borderTop: "1px solid rgba(0,0,0,0.06)",
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "repeating-linear-gradient(-55deg, transparent, transparent 36px, rgba(255,255,255,0.012) 36px, rgba(255,255,255,0.016) 39px)",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            right: "-4%",
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: "42%",
-            opacity: 0.036,
-            pointerEvents: "none",
-            zIndex: 1,
-            filter: "grayscale(1)",
-          }}
-        >
-          <Media src="/proshopLogo.avif" alt="" />
-        </div>
         <div
           style={{
             width: "100%",
@@ -722,12 +731,12 @@ export default function Home({ data }) {
             zIndex: 2,
           }}
         >
-          <div style={{ maxWidth: 640 }}>
+          <div ref={campaignRevealRef} className="reveal" style={{ maxWidth: 640 }}>
             <span
               style={{
                 display: "inline-block",
-                border: "1px solid rgba(255,255,255,0.18)",
-                color: "rgba(255,255,255,0.56)",
+                border: "1px solid rgba(0,0,0,0.15)",
+                color: "rgba(0,0,0,0.48)",
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: "0.15em",
@@ -747,7 +756,7 @@ export default function Home({ data }) {
                 letterSpacing: "-0.01em",
                 textTransform: "uppercase",
                 margin: "0 0 22px",
-                color: "#fff",
+                color: "#111",
               }}
             >
               MUÉVETE
@@ -758,7 +767,7 @@ export default function Home({ data }) {
             </h2>
             <p
               style={{
-                color: "rgba(255,255,255,0.52)",
+                color: "rgba(0,0,0,0.52)",
                 fontSize: "clamp(14px, 1.6vw, 16px)",
                 lineHeight: 1.65,
                 maxWidth: "44ch",
@@ -771,20 +780,20 @@ export default function Home({ data }) {
             <button
               onClick={onCampaignShop}
               style={{
-                background: "#fff",
-                color: "#111",
+                background: "#111",
+                color: "#fff",
                 fontWeight: 700,
                 fontSize: 13.5,
                 letterSpacing: "0.07em",
                 textTransform: "uppercase",
                 padding: "15px 34px",
-                border: "2px solid #fff",
+                border: "2px solid #111",
                 transition: "background 0.12s",
               }}
               onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "#e8e8e8")
+                (e.currentTarget.style.background = "#333")
               }
-              onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#111")}
             >
               VER ROPA DEPORTIVA →
             </button>
@@ -792,11 +801,14 @@ export default function Home({ data }) {
         </div>
       </section>
 
+      {/* Offers carousel */}
       <section
-        style={{ background: "#fff", padding: "clamp(40px, 6vw, 68px) 0" }}
+        style={{ background: "#f5f5f5", padding: "clamp(40px, 6vw, 68px) 0" }}
       >
         <div style={{ width: "100%", maxWidth: 1240, margin: "0 auto" }}>
           <div
+            ref={offersRevealRef}
+            className="reveal"
             style={{
               display: "flex",
               alignItems: "flex-end",
@@ -858,8 +870,9 @@ export default function Home({ data }) {
         </div>
       </section>
 
+      {/* Best Sellers */}
       <section
-        style={{ background: "#f5f5f5", padding: "clamp(40px, 6vw, 68px) 0" }}
+        style={{ background: "#fff", padding: "clamp(40px, 6vw, 68px) 0" }}
       >
         <div
           style={{
@@ -870,6 +883,8 @@ export default function Home({ data }) {
           }}
         >
           <div
+            ref={bestRevealRef}
+            className="reveal"
             style={{
               display: "flex",
               alignItems: "flex-end",
@@ -928,8 +943,8 @@ export default function Home({ data }) {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-              gap: 3,
-              background: "#ddd",
+              gap: 1,
+              background: "#e0e0e0",
             }}
           >
             {bestItems.map((p) => (
@@ -941,6 +956,7 @@ export default function Home({ data }) {
         </div>
       </section>
 
+      {/* Trust bar */}
       <section
         style={{
           background: "#000",
@@ -963,53 +979,47 @@ export default function Home({ data }) {
               borderLeft: "1px solid rgba(255,255,255,0.1)",
             }}
           >
-            {trust.map((tr, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 13,
-                  padding: "clamp(16px, 2.5vw, 20px) clamp(16px, 2.5vw, 22px)",
-                  borderRight: "1px solid rgba(255,255,255,0.1)",
-                }}
-              >
+            {trust.map((tr, i) => {
+              const Icon = TRUST_ICONS[i] || TRUST_ICONS[0];
+              return (
                 <div
+                  key={i}
                   style={{
-                    fontFamily: "'Barlow Condensed', sans-serif",
-                    fontWeight: 900,
-                    fontSize: 28,
-                    color: THEME.sale,
-                    flexShrink: 0,
-                    lineHeight: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 13,
+                    padding: "clamp(16px, 2.5vw, 20px) clamp(16px, 2.5vw, 22px)",
+                    borderRight: "1px solid rgba(255,255,255,0.1)",
                   }}
                 >
-                  {tr.icon}
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 13.5,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {tr.title}
+                  <div style={{ color: THEME.sale, flexShrink: 0, lineHeight: 1 }}>
+                    <Icon />
                   </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "rgba(255,255,255,0.48)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {tr.sub}
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13.5,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {tr.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(255,255,255,0.48)",
+                        marginTop: 2,
+                      }}
+                    >
+                      {tr.sub}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
