@@ -5,7 +5,7 @@ import Catalog from './components/Catalog';
 import ProductPage from './components/ProductPage';
 import Cart from './components/Cart';
 import Footer from './components/Footer';
-import { PRODUCTS, CAT, COLORS, DESC, EDIT_TITLES, EDIT_SUBS, EDIT_LINKS, fmt, findProduct, THEME } from './data/products';
+import { PRODUCTS as STATIC_PRODUCTS, CAT, COLORS, DESC, EDIT_TITLES, EDIT_SUBS, EDIT_LINKS, fmt, THEME } from './data/products';
 
 const FREE_SHIP_FROM = 150000;
 const COUNTDOWN_DATE = '2026-07-26';
@@ -26,8 +26,38 @@ function App() {
     gender: 'todos',
   });
 
+  const [products, setProducts] = useState(STATIC_PRODUCTS);
+
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
+
+  useEffect(() => {
+    fetch('/api/products')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data) || data.length === 0) return;
+        const mapped = data.map((p) => ({
+          id: p.id,
+          name: p.nombre,
+          cat: p.categoria,
+          price: Number(p.precio),
+          old: 0,
+          rating: 4.5,
+          reviews: 0,
+          sizes: Array.isArray(p.tallas) ? p.tallas : [],
+          img: p.urlImagen || '',
+          gender: ['U'],
+        }));
+        setProducts(mapped);
+        setState((s) => {
+          const cats = [...new Set(mapped.map((p) => p.cat))];
+          return cats.includes(s.editTab) ? s : { ...s, editTab: cats[0] || s.editTab };
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  const findProduct = useCallback((id) => products.find((p) => p.id === id) || products[0], [products]);
 
   const flash = useCallback((msg) => {
     setToast(msg);
@@ -55,7 +85,7 @@ function App() {
       color: 0,
     }));
     window.scrollTo({ top: 0, behavior: 'auto' });
-  }, []);
+  }, [findProduct]);
 
   const addToCart = useCallback((id, qty, size, color) => {
     qty = qty || 1;
@@ -122,13 +152,13 @@ function App() {
 
   const cartCount = useMemo(() => state.cart.reduce((a, c) => a + c.qty, 0), [state.cart]);
 
-  const subtotalNum = useMemo(() => state.cart.reduce((a, c) => a + findProduct(c.id).price * c.qty, 0), [state.cart]);
+  const subtotalNum = useMemo(() => state.cart.reduce((a, c) => a + findProduct(c.id).price * c.qty, 0), [state.cart, findProduct]);
   const savingsNum = useMemo(
     () => state.cart.reduce((a, c) => {
       const p = findProduct(c.id);
       return a + (p.old && p.old > p.price ? (p.old - p.price) * c.qty : 0);
     }, 0),
-    [state.cart]
+    [state.cart, findProduct]
   );
   const shippingNum = subtotalNum === 0 ? 0 : subtotalNum >= FREE_SHIP_FROM ? 0 : 12900;
 
@@ -167,7 +197,7 @@ function App() {
       onCheckout: checkout,
       onShop: () => toCatalog('todos'),
     };
-  }, [state.cart, subtotalNum, savingsNum, shippingNum, setQty, removeItem, checkout, toCatalog]);
+  }, [state.cart, subtotalNum, savingsNum, shippingNum, setQty, removeItem, checkout, toCatalog, findProduct]);
 
   const product = useMemo(() => {
     const cp = findProduct(state.pid);
@@ -181,7 +211,7 @@ function App() {
       active: state.color === i,
       onClick: () => setState((s) => ({ ...s, color: i })),
     }));
-    const related = PRODUCTS.filter((p) => p.cat === cp.cat && p.id !== cp.id).slice(0, 4).map((p) => vm(p));
+    const related = products.filter((p) => p.cat === cp.cat && p.id !== cp.id).slice(0, 4).map((p) => vm(p));
     return {
       ...vm(cp),
       hasSizes: !!cp.sizes,
@@ -196,18 +226,19 @@ function App() {
       onCat: () => toCatalog(cp.cat),
       related,
     };
-  }, [state.pid, state.size, state.color, state.qty, vm, addToCart, toCatalog, go]);
+  }, [state.pid, state.size, state.color, state.qty, vm, addToCart, toCatalog, go, products, findProduct]);
 
   const catalog = useMemo(() => {
     const q = (state.query || '').trim().toLowerCase();
-    const filtered = PRODUCTS.filter((p) => {
+    const filtered = products.filter((p) => {
       const catOk = state.cat === 'todos' || p.cat === state.cat;
       const genOk = state.gender === 'todos' || (p.gender || ['U']).includes(state.gender);
       const qOk = !q || p.name.toLowerCase().includes(q);
       return catOk && genOk && qOk;
     });
     const catalogItems = filtered.map((p) => vm(p));
-    const chipDef = [['todos', 'TODOS'], ['ropa', 'ROPA'], ['audio', 'AUDIO'], ['termos', 'TERMOS'], ['acc', 'ACCESORIOS']];
+    const uniqueCats = [...new Set(products.map((p) => p.cat))];
+    const chipDef = [['todos', 'TODOS'], ...uniqueCats.map((cat) => [cat, (CAT[cat] || cat).toUpperCase()])];
     const chips = chipDef.map(([cat, label]) => ({
       label,
       active: state.cat === cat,
@@ -223,10 +254,10 @@ function App() {
       active: state.gender === g.value,
       onClick: () => setState((s) => ({ ...s, gender: g.value })),
     }));
-    const catLabel = state.cat === 'todos' ? 'TODOS LOS PRODUCTOS' : (CAT[state.cat] || '').toUpperCase();
+    const catLabel = state.cat === 'todos' ? 'TODOS LOS PRODUCTOS' : (CAT[state.cat] || state.cat).toUpperCase();
     return {
       title: catLabel,
-      catLabel: state.cat === 'todos' ? 'TODOS' : (CAT[state.cat] || '').toUpperCase(),
+      catLabel: state.cat === 'todos' ? 'TODOS' : (CAT[state.cat] || state.cat).toUpperCase(),
       count: catalogItems.length,
       chips,
       genderChips,
@@ -234,16 +265,16 @@ function App() {
       hasItems: catalogItems.length > 0,
       empty: catalogItems.length === 0,
     };
-  }, [state.cat, state.gender, state.query, vm]);
+  }, [state.cat, state.gender, state.query, vm, products]);
 
   const homeData = useMemo(() => {
-    const sp = findProduct(8);
+    const sp = products.find((p) => p.cat === 'audio') || products[0] || STATIC_PRODUCTS[7];
     const spSale = sp.old && sp.old > sp.price;
     const spotlight = {
       price: fmt(sp.price),
       old: spSale ? fmt(sp.old) : '',
       disc: spSale ? `-${Math.round((1 - sp.price / sp.old) * 100)}%` : '',
-      onView: () => openProduct(8),
+      onView: () => openProduct(sp.id),
     };
     const trust = [
       { icon: '→', title: 'Envío gratis', sub: `En pedidos desde ${fmt(FREE_SHIP_FROM)}` },
@@ -251,20 +282,16 @@ function App() {
       { icon: '✓', title: 'Pago seguro', sub: 'Cifrado en cada transacción' },
       { icon: '★', title: '+12.000 clientes', sub: 'Califican 4.8 / 5.0' },
     ];
-    const offerItems = PRODUCTS.filter((p) => p.old && p.old > p.price).slice(0, 8).map((p) => vm(p));
-    const bestItems = [...PRODUCTS].sort((a, b) => b.rating - a.rating).slice(0, 8).map((p) => vm(p));
-    const editTabDef = [
-      { label: 'ROPA', cat: 'ropa' },
-      { label: 'AUDIO', cat: 'audio' },
-      { label: 'TERMOS', cat: 'termos' },
-      { label: 'ACCESORIOS', cat: 'acc' },
-    ];
+    const offerItems = products.filter((p) => p.old && p.old > p.price).slice(0, 8).map((p) => vm(p));
+    const bestItems = [...products].sort((a, b) => b.rating - a.rating).slice(0, 8).map((p) => vm(p));
+    const uniqueCats = [...new Set(products.map((p) => p.cat))];
+    const editTabDef = uniqueCats.map((cat) => ({ label: (CAT[cat] || cat).toUpperCase(), cat }));
     const editTabs = editTabDef.map((et) => ({
       label: et.label,
       active: state.editTab === et.cat,
       onClick: () => setState((s) => ({ ...s, editTab: et.cat })),
     }));
-    const editItems = PRODUCTS.filter((p) => p.cat === state.editTab).map((p) => vm(p));
+    const editItems = products.filter((p) => p.cat === state.editTab).map((p) => vm(p));
     return {
       spotlight,
       trust,
@@ -283,7 +310,7 @@ function App() {
       onCampaignShop: () => toCatalog('ropa'),
       countdownDate: COUNTDOWN_DATE,
     };
-  }, [state.editTab, vm, openProduct, toCatalog]);
+  }, [state.editTab, vm, openProduct, toCatalog, products]);
 
   const nav = useMemo(() => {
     const navDef = [
