@@ -13,11 +13,11 @@ import {
   EDIT_LINKS,
   EDIT_SUBS,
   EDIT_TITLES,
-  findProduct,
   fmt,
-  PRODUCTS,
 } from "./data/products";
 import AuthCallback from "./pages/AuthCallback";
+import CheckoutPage from "./pages/CheckoutPage";
+import OrderHistory from "./pages/OrderHistory";
 import api from "./services/api";
 import { useAuthStore } from "./stores/authStore";
 
@@ -37,6 +37,39 @@ function AppShell() {
 function AppMain() {
   const { token, setUser } = useAuthStore();
 
+  // ── Productos desde la BD ──────────────────────────────────
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    api
+      .get("/products")
+      .then((res) => {
+        const mapped = res.data.map((p) => ({
+          id: p.id,
+          name: p.nombre,
+          cat: p.categoria,
+          gender: p.genero || ["U"],
+          price: Number(p.precio),
+          old: p.precioAnterior ? Number(p.precioAnterior) : 0,
+          rating: p.rating ? Number(p.rating) : 0,
+          reviews: p.reviews || 0,
+          sizes: p.tallas && p.tallas.length > 0 ? p.tallas : null,
+          img: p.urlImagen || null,
+          disponibles: p.disponibles || 0,
+        }));
+        setProducts(mapped);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingProducts(false));
+  }, []);
+
+  const findProduct = useCallback(
+    (id) => products.find((p) => p.id === id) || products[0] || { price: 0, old: 0, sizes: null, cat: "ropa", gender: ["U"], rating: 0, reviews: 0 },
+    [products],
+  );
+
+  // ── Auth ───────────────────────────────────────────────────
   useEffect(() => {
     if (token) {
       api
@@ -47,7 +80,7 @@ function AppMain() {
   }, [token]);
 
   const [state, setState] = useState({
-    screen: "home",
+    screen: window.location.pathname === "/orders" ? "orders" : "home",
     cat: "todos",
     pid: 1,
     qty: 1,
@@ -93,7 +126,7 @@ function AppMain() {
       color: 0,
     }));
     window.scrollTo({ top: 0, behavior: "auto" });
-  }, []);
+  }, [findProduct]);
 
   const addToCart = useCallback(
     (id, qty, size, color) => {
@@ -138,10 +171,9 @@ function AppMain() {
   }, []);
 
   const checkout = useCallback(() => {
-    setState((s) => ({ ...s, cart: [] }));
-    go("home");
-    flash("¡PEDIDO REALIZADO! GRACIAS");
-  }, [go, flash]);
+    // Ir a la página de checkout real (Wompi)
+    go("checkout");
+  }, [go]);
 
   const vm = useCallback(
     (p) => {
@@ -184,7 +216,7 @@ function AppMain() {
 
   const subtotalNum = useMemo(
     () => state.cart.reduce((a, c) => a + findProduct(c.id).price * c.qty, 0),
-    [state.cart],
+    [state.cart, findProduct],
   );
   const savingsNum = useMemo(
     () =>
@@ -192,14 +224,14 @@ function AppMain() {
         const p = findProduct(c.id);
         return a + (p.old && p.old > p.price ? (p.old - p.price) * c.qty : 0);
       }, 0),
-    [state.cart],
+    [state.cart, findProduct],
   );
   const shippingNum =
     subtotalNum === 0 ? 0 : subtotalNum >= FREE_SHIP_FROM ? 0 : 12900;
 
   const cartSummary = useMemo(() => {
     const items = state.cart.map((c, idx) => {
-      const p = findProduct(c.id);
+      const p = findProduct(c.id) || {};
       const colorHex = (COLORS[p.cat] || ["#111"])[c.color] || "#111";
       const variant = c.size ? `Talla ${c.size}` : "";
       return {
@@ -237,6 +269,7 @@ function AppMain() {
     subtotalNum,
     savingsNum,
     shippingNum,
+    findProduct,
     setQty,
     removeItem,
     checkout,
@@ -255,7 +288,7 @@ function AppMain() {
       active: state.color === i,
       onClick: () => setState((s) => ({ ...s, color: i })),
     }));
-    const related = PRODUCTS.filter((p) => p.cat === cp.cat && p.id !== cp.id)
+    const related = products.filter((p) => p.cat === cp.cat && p.id !== cp.id)
       .slice(0, 4)
       .map((p) => vm(p));
     return {
@@ -278,6 +311,8 @@ function AppMain() {
     state.size,
     state.color,
     state.qty,
+    findProduct,
+    products,
     vm,
     addToCart,
     toCatalog,
@@ -286,7 +321,7 @@ function AppMain() {
 
   const catalog = useMemo(() => {
     const q = (state.query || "").trim().toLowerCase();
-    const filtered = PRODUCTS.filter((p) => {
+    const filtered = products.filter((p) => {
       const catOk = state.cat === "todos" || p.cat === state.cat;
       const genOk =
         state.gender === "todos" || (p.gender || ["U"]).includes(state.gender);
@@ -297,9 +332,9 @@ function AppMain() {
     const chipDef = [
       ["todos", "TODOS"],
       ["ropa", "ROPA"],
-      ["audio", "AUDIO"],
-      ["termos", "TERMOS"],
-      ["acc", "ACCESORIOS"],
+      ["calzado", "CALZADO"],
+      ["accesorios", "ACCESORIOS"],
+      ["equipos", "EQUIPOS"],
     ];
     const chips = chipDef.map(([cat, label]) => ({
       label,
@@ -331,16 +366,16 @@ function AppMain() {
       hasItems: catalogItems.length > 0,
       empty: catalogItems.length === 0,
     };
-  }, [state.cat, state.gender, state.query, vm]);
+  }, [state.cat, state.gender, state.query, products, vm]);
 
   const homeData = useMemo(() => {
-    const sp = findProduct(8);
+    const sp = products[0] || { price: 0, old: 0, id: null };
     const spSale = sp.old && sp.old > sp.price;
     const spotlight = {
       price: fmt(sp.price),
       old: spSale ? fmt(sp.old) : "",
       disc: spSale ? `-${Math.round((1 - sp.price / sp.old) * 100)}%` : "",
-      onView: () => openProduct(8),
+      onView: () => sp.id && openProduct(sp.id),
     };
     const trust = [
       {
@@ -352,27 +387,28 @@ function AppMain() {
       { icon: "✓", title: "Pago seguro", sub: "Cifrado en cada transacción" },
       { icon: "★", title: "+12.000 clientes", sub: "Califican 4.8 / 5.0" },
     ];
-    const offerItems = PRODUCTS.filter((p) => p.old && p.old > p.price)
+    const offerItems = products
+      .filter((p) => p.old && p.old > p.price)
       .slice(0, 8)
       .map((p) => vm(p));
-    const bestItems = [...PRODUCTS]
+    const bestItems = [...products]
       .sort((a, b) => b.rating - a.rating)
       .slice(0, 8)
       .map((p) => vm(p));
     const editTabDef = [
       { label: "ROPA", cat: "ropa" },
-      { label: "AUDIO", cat: "audio" },
-      { label: "TERMOS", cat: "termos" },
-      { label: "ACCESORIOS", cat: "acc" },
+      { label: "CALZADO", cat: "calzado" },
+      { label: "ACCESORIOS", cat: "accesorios" },
+      { label: "EQUIPOS", cat: "equipos" },
     ];
     const editTabs = editTabDef.map((et) => ({
       label: et.label,
       active: state.editTab === et.cat,
       onClick: () => setState((s) => ({ ...s, editTab: et.cat })),
     }));
-    const editItems = PRODUCTS.filter((p) => p.cat === state.editTab).map((p) =>
-      vm(p),
-    );
+    const editItems = products
+      .filter((p) => p.cat === state.editTab)
+      .map((p) => vm(p));
     return {
       spotlight,
       trust,
@@ -391,14 +427,14 @@ function AppMain() {
       onCampaignShop: () => toCatalog("ropa"),
       countdownDate: COUNTDOWN_DATE,
     };
-  }, [state.editTab, vm, openProduct, toCatalog]);
+  }, [state.editTab, products, vm, openProduct, toCatalog]);
 
   const nav = useMemo(() => {
     const navDef = [
       { label: "ROPA", cat: "ropa" },
-      { label: "AUDIO", cat: "audio" },
-      { label: "TERMOS", cat: "termos" },
-      { label: "ACCESORIOS", cat: "acc" },
+      { label: "CALZADO", cat: "calzado" },
+      { label: "ACCESORIOS", cat: "accesorios" },
+      { label: "EQUIPOS", cat: "equipos" },
       { label: "OUTLET", cat: "todos", outlet: true },
     ];
     return navDef.map((n) => {
@@ -408,6 +444,7 @@ function AppMain() {
       return {
         label: n.label,
         active,
+        outlet: n.outlet,
         onClick: () => toCatalog(n.cat),
       };
     });
@@ -432,6 +469,14 @@ function AppMain() {
     return () => clearTimeout(toastTimer.current);
   }, []);
 
+  if (loadingProducts) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#111", color: "#fff", fontFamily: "'Hanken Grotesk', sans-serif", fontWeight: 700, letterSpacing: "0.1em", fontSize: 14, textTransform: "uppercase" }}>
+        Cargando productos...
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -450,6 +495,7 @@ function AppMain() {
         onSearchKey={onSearchKey}
         onLogo={() => go("home")}
         onCart={() => go("cart")}
+        onOrders={() => go("orders")}
         onSidebar={() => toCatalog("todos")}
         cartCount={cartCount}
         hasCart={cartCount > 0}
@@ -461,6 +507,23 @@ function AppMain() {
         )}
         {state.screen === "product" && <ProductPage data={product} />}
         {state.screen === "cart" && <Cart data={cartSummary} />}
+        {state.screen === "checkout" && (
+          <CheckoutPage
+            cartItems={state.cart.map((c) => ({
+              id: c.id,
+              qty: c.qty,
+              price: findProduct(c.id).price,
+              size: c.size,
+              color: c.color,
+            }))}
+            total={subtotalNum + shippingNum}
+            onBack={() => go("cart")}
+            onSuccess={() => { setState((s) => ({ ...s, cart: [] })); go("orders"); }}
+          />
+        )}
+        {state.screen === "orders" && (
+          <OrderHistory onHome={() => go("home")} />
+        )}
       </main>
       <Footer onLogo={() => go("home")} />
       {toast && (

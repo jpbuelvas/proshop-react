@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export default function Header({ nav, query, onSearch, onSearchKey, onLogo, onCart, onSidebar, cartCount, hasCart }) {
+export default function Header({ nav, query, onSearch, onSearchKey, onLogo, onCart, onOrders, onSidebar, cartCount, hasCart }) {
   const { user, token, logout } = useAuthStore();
   return (
     <>
@@ -123,6 +123,14 @@ export default function Header({ nav, query, onSearch, onSearchKey, onLogo, onCa
                   onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
                 >
                   SALIR
+                </button>
+                <button
+                  onClick={onOrders}
+                  style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'color 0.12s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+                >
+                  MIS PEDIDOS
                 </button>
               </div>
             ) : (
