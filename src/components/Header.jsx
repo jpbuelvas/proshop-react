@@ -1,6 +1,10 @@
 import { THEME } from '../data/products';
+import { useAuthStore } from '../stores/authStore';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Header({ nav, query, onSearch, onSearchKey, onLogo, onCart, onSidebar, cartCount, hasCart }) {
+  const { user, token, logout } = useAuthStore();
   return (
     <>
       <div
@@ -98,6 +102,72 @@ export default function Header({ nav, query, onSearch, onSearchKey, onLogo, onCa
                 outline: 'none',
               }}
             />
+
+            {/* ── AUTH BUTTONS ─────────────────────────────── */}
+            {token ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {user?.avatar && (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.3)' }}
+                  />
+                )}
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  {user?.name?.split(' ')[0] || 'Mi cuenta'}
+                </span>
+                <button
+                  onClick={logout}
+                  style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'color 0.12s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = THEME.sale)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
+                >
+                  SALIR
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <a
+                  href={`${API_URL}/auth/google`}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    padding: '7px 12px',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    transition: 'background 0.12s',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  Google
+                </a>
+                <a
+                  href={`${API_URL}/auth/facebook`}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    padding: '7px 12px',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    transition: 'background 0.12s',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  Facebook
+                </a>
+              </div>
+            )}
+
             <button
               onClick={onCart}
               style={{
