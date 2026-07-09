@@ -8,7 +8,7 @@ import Home from "./components/Home";
 import ProductPage from "./components/ProductPage";
 import {
   CAT,
-  COLORS,
+  COLOR_MAP,
   DESC,
   EDIT_LINKS,
   EDIT_SUBS,
@@ -18,6 +18,9 @@ import {
 import AuthCallback from "./pages/AuthCallback";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderHistory from "./pages/OrderHistory";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import AdminPage from "./pages/AdminPage";
 import api from "./services/api";
 import { useAuthStore } from "./stores/authStore";
 
@@ -35,7 +38,8 @@ function AppShell() {
 }
 
 function AppMain() {
-  const { token, setUser } = useAuthStore();
+  const { token, setUser, user } = useAuthStore();
+  const [modal, setModal] = useState(null); // 'login' | 'register' | 'admin' | null
 
   // ── Productos desde la BD ──────────────────────────────────
   const [products, setProducts] = useState([]);
@@ -45,19 +49,31 @@ function AppMain() {
     api
       .get("/products")
       .then((res) => {
-        const mapped = res.data.map((p) => ({
-          id: p.id,
-          name: p.nombre,
-          cat: p.categoria,
-          gender: p.genero || ["U"],
-          price: Number(p.precio),
-          old: p.precioAnterior ? Number(p.precioAnterior) : 0,
-          rating: p.rating ? Number(p.rating) : 0,
-          reviews: p.reviews || 0,
-          sizes: p.tallas && p.tallas.length > 0 ? p.tallas : null,
-          img: p.urlImagen || null,
-          disponibles: p.disponibles || 0,
-        }));
+        const mapped = res.data.map((p) => {
+          const variants = p.variants || [];
+          // Tamaños únicos disponibles con stock > 0 (excluye 'U' = talla única)
+          const sizes = [...new Set(
+            variants.filter((v) => v.size !== 'U' && v.available > 0).map((v) => v.size)
+          )];
+          // Colores únicos disponibles con stock > 0 (excluye 'U' = sin variante de color)
+          const colors = [...new Set(
+            variants.filter((v) => v.color !== 'U' && v.available > 0).map((v) => v.color)
+          )];
+          return {
+            id: p.id,
+            name: p.name,
+            cat: p.category,
+            gender: p.gender || ["U"],
+            price: Number(p.price),
+            old: p.previousPrice ? Number(p.previousPrice) : 0,
+            rating: p.rating ? Number(p.rating) : 0,
+            reviews: p.reviews || 0,
+            sizes: sizes.length > 0 ? sizes : null,
+            colors: colors.length > 0 ? colors : null, // nombres de color reales
+            img: p.imageUrl || null,
+            variants, // variantes completas para stock y precio especial
+          };
+        });
         setProducts(mapped);
       })
       .catch(() => {})
@@ -85,7 +101,7 @@ function AppMain() {
     pid: 1,
     qty: 1,
     size: "M",
-    color: 0,
+    color: null,   // nombre del color seleccionado (string) o null si no aplica
     cart: [],
     favs: [],
     query: "",
@@ -122,8 +138,8 @@ function AppMain() {
       screen: "product",
       pid: id,
       qty: 1,
-      size: p.sizes ? p.sizes[Math.min(2, p.sizes.length - 1)] : null,
-      color: 0,
+      size: p.sizes ? p.sizes[0] : null,
+      color: p.colors ? p.colors[0] : null, // primer color disponible
     }));
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [findProduct]);
@@ -133,14 +149,15 @@ function AppMain() {
       qty = qty || 1;
       setState((s) => {
         const cart = [...s.cart];
-        const k = `${id}|${size || ""}|${color || 0}`;
+        // key única por combinación producto + color + talla
+        const k = `${id}|${color || ""}|${size || ""}`;
         const i = cart.findIndex(
-          (c) => `${c.id}|${c.size || ""}|${c.color}` === k,
+          (c) => `${c.id}|${c.color || ""}|${c.size || ""}` === k,
         );
         if (i >= 0) {
           cart[i] = { ...cart[i], qty: cart[i].qty + qty };
         } else {
-          cart.push({ id, qty, size: size || null, color: color || 0 });
+          cart.push({ id, qty, size: size || null, color: color || null });
         }
         return { ...s, cart };
       });
@@ -200,8 +217,8 @@ function AppMain() {
           addToCart(
             p.id,
             1,
-            p.sizes ? p.sizes[Math.min(2, p.sizes.length - 1)] : null,
-            0,
+            p.sizes ? p.sizes[0] : null,
+            p.colors ? p.colors[0] : null,
           ),
         onFav: () => toggleFav(p.id),
       };
@@ -232,8 +249,9 @@ function AppMain() {
   const cartSummary = useMemo(() => {
     const items = state.cart.map((c, idx) => {
       const p = findProduct(c.id) || {};
-      const colorHex = (COLORS[p.cat] || ["#111"])[c.color] || "#111";
-      const variant = c.size ? `Talla ${c.size}` : "";
+      const colorHex = c.color ? (COLOR_MAP[c.color] || "#555") : null;
+      const parts = [c.color && c.color !== 'U' ? c.color : null, c.size ? `Talla ${c.size}` : null].filter(Boolean);
+      const variant = parts.join(' / ');
       return {
         name: p.name,
         img: p.img || "",
@@ -283,10 +301,12 @@ function AppMain() {
       active: state.size === sz,
       onClick: () => setState((s) => ({ ...s, size: sz })),
     }));
-    const colors = (COLORS[cp.cat] || []).map((hex, i) => ({
-      hex,
-      active: state.color === i,
-      onClick: () => setState((s) => ({ ...s, color: i })),
+    // Colores desde las variantes reales del producto
+    const colors = (cp.colors || []).map((colorName) => ({
+      name: colorName,
+      hex: COLOR_MAP[colorName] || '#555',
+      active: state.color === colorName,
+      onClick: () => setState((s) => ({ ...s, color: colorName })),
     }));
     const related = products.filter((p) => p.cat === cp.cat && p.id !== cp.id)
       .slice(0, 4)
@@ -301,7 +321,7 @@ function AppMain() {
       onInc: () => setState((s) => ({ ...s, qty: s.qty + 1 })),
       onDec: () => setState((s) => ({ ...s, qty: Math.max(1, s.qty - 1) })),
       onAdd: () =>
-        addToCart(cp.id, state.qty, cp.sizes ? state.size : null, state.color),
+        addToCart(cp.id, state.qty, cp.sizes ? state.size : null, cp.colors ? state.color : null),
       onHome: () => go("home"),
       onCat: () => toCatalog(cp.cat),
       related,
@@ -499,6 +519,9 @@ function AppMain() {
         onSidebar={() => toCatalog("todos")}
         cartCount={cartCount}
         hasCart={cartCount > 0}
+        onLogin={() => setModal('login')}
+        onRegister={() => setModal('register')}
+        onAdmin={() => setModal('admin')}
       />
       <main style={{ flex: 1 }}>
         {state.screen === "home" && <Home data={homeData} />}
@@ -526,6 +549,26 @@ function AppMain() {
         )}
       </main>
       <Footer onLogo={() => go("home")} />
+
+      {/* Modales auth / admin */}
+      {modal === 'login' && (
+        <LoginPage
+          onSuccess={() => setModal(null)}
+          onGoRegister={() => setModal('register')}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'register' && (
+        <RegisterPage
+          onSuccess={() => setModal(null)}
+          onGoLogin={() => setModal('login')}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'admin' && user?.role === 'admin' && (
+        <AdminPage onClose={() => setModal(null)} />
+      )}
+
       {toast && (
         <div
           className="toast-animate"

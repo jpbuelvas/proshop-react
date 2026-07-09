@@ -40,7 +40,7 @@ export default function CheckoutPage({ cartItems, total, onBack, onSuccess }) {
           quantity: item.qty,
           unitPrice: item.price,
           size: item.size ?? null,
-          color: item.color !== undefined ? String(item.color) : null,
+          color: item.color || null,
         })),
         total,
         ...form,
