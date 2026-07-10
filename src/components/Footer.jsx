@@ -21,9 +21,18 @@ export default function Footer({ onLogo }) {
           <div>
             <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.36)', marginBottom: 14 }}>AYUDA</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <FooterBtn>Envíos y devoluciones</FooterBtn>
-              <FooterBtn>Garantía</FooterBtn>
-              <FooterBtn>Contáctanos</FooterBtn>
+              <FooterBtn>Envios y devoluciones</FooterBtn>
+              <FooterBtn>Garantia</FooterBtn>
+              <FooterBtn>Contactanos</FooterBtn>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.36)', marginBottom: 14 }}>SOPORTE</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <a href="mailto:soporte@proshopbaq.com.co" style={{ fontSize: 13, color: '#fff', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
+                soporte@proshopbaq.com.co
+              </a>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.6 }}>Lun - Vie, 8am - 6pm</p>
             </div>
           </div>
           <div>
