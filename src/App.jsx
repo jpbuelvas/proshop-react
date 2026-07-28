@@ -59,6 +59,7 @@ function AppMain() {
           const colors = [...new Set(
             variants.filter((v) => v.color !== 'U' && v.available > 0).map((v) => v.color)
           )];
+          const totalStock = variants.reduce((sum, v) => sum + (v.available || 0), 0);
           return {
             id: p.id,
             name: p.name,
@@ -72,6 +73,7 @@ function AppMain() {
             colors: colors.length > 0 ? colors : null, // nombres de color reales
             img: p.imageUrl || null,
             variants, // variantes completas para stock y precio especial
+            outOfStock: variants.length > 0 && totalStock === 0,
           };
         });
         setProducts(mapped);
@@ -147,6 +149,17 @@ function AppMain() {
   const addToCart = useCallback(
     (id, qty, size, color) => {
       qty = qty || 1;
+      const p = findProduct(id);
+      const variantColor = color || 'U';
+      const variantSize = size || 'U';
+      const variant = (p.variants || []).find(
+        (v) => v.color === variantColor && v.size === variantSize,
+      );
+      // Si no hay variante o no tiene stock suficiente, bloquear
+      if (!variant || variant.available < qty) {
+        flash('SIN STOCK DISPONIBLE');
+        return;
+      }
       setState((s) => {
         const cart = [...s.cart];
         // key única por combinación producto + color + talla
@@ -163,7 +176,7 @@ function AppMain() {
       });
       flash("AGREGADO AL CARRITO");
     },
-    [flash],
+    [flash, findProduct],
   );
 
   const setQty = useCallback((idx, delta) => {
@@ -212,6 +225,7 @@ function AppMain() {
         reviews: p.reviews,
         fav,
         favIcon: fav ? "♥" : "♡",
+        outOfStock: !!p.outOfStock,
         onView: () => openProduct(p.id),
         onAdd: () =>
           addToCart(
@@ -311,8 +325,18 @@ function AppMain() {
     const related = products.filter((p) => p.cat === cp.cat && p.id !== cp.id)
       .slice(0, 4)
       .map((p) => vm(p));
+
+    // Stock de la variante actualmente seleccionada
+    const selectedColor = cp.colors ? state.color : 'U';
+    const selectedSize = cp.sizes ? state.size : 'U';
+    const selectedVariant = (cp.variants || []).find(
+      (v) => v.color === (selectedColor || 'U') && v.size === (selectedSize || 'U'),
+    );
+    const variantOutOfStock = !selectedVariant || selectedVariant.available < 1;
+
     return {
       ...vm(cp),
+      outOfStock: variantOutOfStock,
       hasSizes: !!cp.sizes,
       sizes,
       colors,

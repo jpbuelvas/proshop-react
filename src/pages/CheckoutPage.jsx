@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { createOrder, initPayment } from '../services/orders.service';
+import { createOrder, initPayment, checkStock } from '../services/orders.service';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -17,8 +17,27 @@ export default function CheckoutPage({ cartItems, total, onBack, onSuccess }) {
     shippingPhone: '',
   });
   const [loading, setLoading] = useState(false);
+  const [stockChecking, setStockChecking] = useState(true);
+  const [stockBlocked, setStockBlocked] = useState(false);
   const [error, setError] = useState('');
   const [wompiData, setWompiData] = useState(null);
+
+  // Verificar stock antes de mostrar el formulario
+  useEffect(() => {
+    if (!token) { setStockChecking(false); return; }
+    checkStock(cartItems)
+      .then((issues) => {
+        if (issues.length > 0) {
+          const msg = issues.map((i) =>
+            `"${i.productName}" — disponibles: ${i.available}, pediste: ${i.requested}`
+          ).join('\n');
+          setError(`Hay productos sin stock suficiente:\n${msg}`);
+          setStockBlocked(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setStockChecking(false));
+  }, []);
 
   const handleChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -105,7 +124,9 @@ export default function CheckoutPage({ cartItems, total, onBack, onSuccess }) {
           DATOS DE ENVÍO
         </h1>
 
-        {!wompiData ? (
+        {stockChecking ? (
+          <div style={{ color: '#555', fontSize: 14, padding: '20px 0' }}>Verificando disponibilidad...</div>
+        ) : !wompiData ? (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
               <label style={labelStyle}>Dirección</label>
@@ -163,8 +184,8 @@ export default function CheckoutPage({ cartItems, total, onBack, onSuccess }) {
               </button>
               <button
                 type="submit"
-                disabled={loading}
-                style={{ flex: 2, padding: 15, background: loading ? '#666' : '#111', color: '#fff', fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.06em', border: 'none' }}
+                disabled={loading || stockBlocked}
+                style={{ flex: 2, padding: 15, background: (loading || stockBlocked) ? '#aaa' : '#111', color: '#fff', fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.06em', border: 'none' }}
               >
                 {loading ? 'PROCESANDO...' : 'IR A PAGAR'}
               </button>

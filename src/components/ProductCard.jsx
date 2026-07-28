@@ -1,7 +1,7 @@
 import Media from './Media';
 
 export default function ProductCard({ product }) {
-  const { name, tile, img, noImg, price, old, onSale, discText, rating, reviews, favIcon, onView, onAdd, onFav } = product;
+  const { name, tile, img, noImg, price, old, onSale, discText, rating, reviews, favIcon, onView, onAdd, onFav, outOfStock } = product;
 
   return (
     <div
@@ -25,7 +25,26 @@ export default function ProductCard({ product }) {
           cursor: 'pointer',
         }}
       >
-        {onSale && (
+        {outOfStock && (
+          <span
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              background: '#555',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: 12.5,
+              padding: '6px 12px',
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              zIndex: 2,
+            }}
+          >
+            AGOTADO
+          </span>
+        )}
+        {!outOfStock && onSale && (
           <span
             style={{
               position: 'absolute',
@@ -88,10 +107,11 @@ export default function ProductCard({ product }) {
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
           <button
-            onClick={onAdd}
+            onClick={outOfStock ? undefined : onAdd}
+            disabled={outOfStock}
             style={{
               flex: 1,
-              background: '#111',
+              background: outOfStock ? '#bbb' : '#111',
               color: '#fff',
               fontWeight: 700,
               fontSize: 12.5,
@@ -99,11 +119,12 @@ export default function ProductCard({ product }) {
               textTransform: 'uppercase',
               padding: '11px 0',
               transition: 'background var(--transition)',
+              cursor: outOfStock ? 'not-allowed' : 'pointer',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#333')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = '#111')}
+            onMouseEnter={(e) => { if (!outOfStock) e.currentTarget.style.background = '#333'; }}
+            onMouseLeave={(e) => { if (!outOfStock) e.currentTarget.style.background = outOfStock ? '#bbb' : '#111'; }}
           >
-            Agregar
+            {outOfStock ? 'Agotado' : 'Agregar'}
           </button>
           <button
             onClick={onFav}

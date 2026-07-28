@@ -6,7 +6,7 @@ import { THEME } from '../data/products';
 export default function ProductPage({ data }) {
   const {
     name, catLabel, img, noImg, price, old, onSale, discText, rating, reviews, hasSizes, sizes, colors, desc, qty,
-    onInc, onDec, onAdd, onFav, favIcon, onHome, onCat, related,
+    onInc, onDec, onAdd, onFav, favIcon, onHome, onCat, related, outOfStock,
   } = data;
 
   const zoomRef = useRef(null);
@@ -75,7 +75,26 @@ export default function ProductPage({ data }) {
                 touchAction: 'none',
               }}
             >
-              {onSale && (
+              {outOfStock && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    background: '#555',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 12.5,
+                    padding: '6px 12px',
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    zIndex: 2,
+                  }}
+                >
+                  AGOTADO
+                </span>
+              )}
+              {!outOfStock && onSale && (
                 <span
                   style={{
                     position: 'absolute',
@@ -210,11 +229,12 @@ export default function ProductPage({ data }) {
                 </button>
               </div>
               <button
-                onClick={onAdd}
+                onClick={outOfStock ? undefined : onAdd}
+                disabled={outOfStock}
                 style={{
                   flex: 1,
                   minWidth: 200,
-                  background: '#111',
+                  background: outOfStock ? '#bbb' : '#111',
                   color: '#fff',
                   fontWeight: 700,
                   fontSize: 14,
@@ -222,13 +242,14 @@ export default function ProductPage({ data }) {
                   textTransform: 'uppercase',
                   padding: '0 24px',
                   height: 52,
-                  border: '2px solid #111',
+                  border: `2px solid ${outOfStock ? '#bbb' : '#111'}`,
                   transition: 'background 0.12s',
+                  cursor: outOfStock ? 'not-allowed' : 'pointer',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#333')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = '#111')}
+                onMouseEnter={(e) => { if (!outOfStock) e.currentTarget.style.background = '#333'; }}
+                onMouseLeave={(e) => { if (!outOfStock) e.currentTarget.style.background = '#111'; }}
               >
-                AGREGAR AL CARRITO
+                {outOfStock ? 'AGOTADO' : 'AGREGAR AL CARRITO'}
               </button>
               <button
                 onClick={onFav}
