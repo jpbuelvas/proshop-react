@@ -1,13 +1,25 @@
+import { useState, useEffect } from 'react';
 import { THEME } from '../data/products';
 import { useAuthStore } from '../stores/authStore';
 
 export default function Header({
-  nav, query, onSearch, onSearchKey,
+  nav, bannerText, query, onSearch, onSearchKey,
   onLogo, onCart, onOrders, onSidebar,
   cartCount, hasCart,
   onLogin, onRegister, onAdmin,
 }) {
   const { user, token, logout } = useAuthStore();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handler = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) setMenuOpen(false);
+    };
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   return (
     <>
@@ -27,13 +39,15 @@ export default function Header({
       </div>
 
       <header style={{ position: 'sticky', top: 0, zIndex: 40, background: '#111' }}>
-        <div style={{
-          background: THEME.sale, color: '#fff', textAlign: 'center',
-          fontSize: 12.5, fontWeight: 700, padding: '9px 12px',
-          letterSpacing: '0.06em', textTransform: 'uppercase',
-        }}>
-          OUTLET · HASTA 40% OFF · ENVÍO GRATIS DESDE $150.000
-        </div>
+        {bannerText && (
+          <div style={{
+            background: THEME.sale, color: '#fff', textAlign: 'center',
+            fontSize: 12.5, fontWeight: 700, padding: '9px 12px',
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+          }}>
+            {bannerText}
+          </div>
+        )}
 
         <div style={{
           display: 'flex', alignItems: 'center', height: 70,
@@ -43,64 +57,70 @@ export default function Header({
         }}>
           {/* Logo */}
           <button onClick={onLogo} style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
-            <img src="/proshopLogo.png" alt="Pro Shop" style={{ height: 46, width: 46, objectFit: 'contain', borderRadius: 5 }} />
+            <img src="/proshopLogo.avif" alt="Pro Shop" style={{ height: 54, width: 'auto', objectFit: 'contain', display: 'block' }} />
             <span style={{
               fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 23,
               letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff', lineHeight: 1,
             }}>PRO SHOP</span>
           </button>
 
-          {/* Nav */}
-          <nav style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 'clamp(8px, 2vw, 26px)', overflow: 'hidden' }}>
-            {nav.map((n, i) => (
-              <button key={i} onClick={n.onClick} style={{
-                fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-                color: n.active ? '#fff' : n.outlet ? THEME.sale : 'rgba(255,255,255,0.62)',
-                whiteSpace: 'nowrap', padding: '4px 0',
-                borderBottom: n.active ? `2px solid ${THEME.sale}` : '2px solid transparent',
-                transition: 'color 0.12s',
-              }}>{n.label}</button>
-            ))}
-          </nav>
+          {/* Nav (desktop only) */}
+          {!isMobile && (
+            <nav style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 'clamp(8px, 2vw, 26px)', overflow: 'hidden' }}>
+              {nav.map((n, i) => (
+                <button key={i} onClick={n.onClick} style={{
+                  fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                  color: n.active ? '#fff' : n.outlet ? THEME.sale : 'rgba(255,255,255,0.62)',
+                  whiteSpace: 'nowrap', padding: '4px 0',
+                  borderBottom: n.active ? `2px solid ${THEME.sale}` : '2px solid transparent',
+                  transition: 'color 0.12s',
+                }}>{n.label}</button>
+              ))}
+            </nav>
+          )}
 
           {/* Right side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <input
-              value={query}
-              onChange={(e) => onSearch(e.target.value)}
-              onKeyDown={onSearchKey}
-              placeholder="Buscar..."
-              style={{
-                width: 'clamp(72px, 12vw, 160px)',
-                background: 'rgba(255,255,255,0.08)', border: 'none',
-                borderBottom: '1px solid rgba(255,255,255,0.22)',
-                padding: '7px 9px', fontSize: 13, color: '#fff', outline: 'none',
-              }}
-            />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: isMobile ? 'auto' : undefined }}>
+            {!isMobile && (
+              <input
+                value={query}
+                onChange={(e) => onSearch(e.target.value)}
+                onKeyDown={onSearchKey}
+                placeholder="Buscar..."
+                style={{
+                  width: 'clamp(72px, 12vw, 160px)',
+                  background: 'rgba(255,255,255,0.08)', border: 'none',
+                  borderBottom: '1px solid rgba(255,255,255,0.22)',
+                  padding: '7px 9px', fontSize: 13, color: '#fff', outline: 'none',
+                }}
+              />
+            )}
 
-            {/* Auth */}
-            {token ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {user?.avatar && (
-                  <img src={user.avatar} alt={user.name} style={{
-                    width: 28, height: 28, borderRadius: '50%', objectFit: 'cover',
-                    border: '2px solid rgba(255,255,255,0.3)',
-                  }} />
-                )}
-                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                  {user?.name?.split(' ')[0] || 'Mi cuenta'}
-                </span>
-                {user?.role === 'admin' && (
-                  <HeaderBtn onClick={onAdmin} label="ADMIN" highlight />
-                )}
-                <HeaderBtn onClick={onOrders} label="PEDIDOS" />
-                <HeaderBtn onClick={logout} label="SALIR" muted />
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <HeaderOutlineBtn onClick={onLogin} label="ENTRAR" />
-                <HeaderOutlineBtn onClick={onRegister} label="REGISTRARSE" />
-              </div>
+            {/* Auth (desktop only, moved into the mobile menu below) */}
+            {!isMobile && (
+              token ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {user?.avatar && (
+                    <img src={user.avatar} alt={user.name} style={{
+                      width: 28, height: 28, borderRadius: '50%', objectFit: 'cover',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                    }} />
+                  )}
+                  <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    {user?.name?.split(' ')[0] || 'Mi cuenta'}
+                  </span>
+                  {user?.role === 'admin' && (
+                    <HeaderBtn onClick={onAdmin} label="ADMIN" highlight />
+                  )}
+                  <HeaderBtn onClick={onOrders} label="PEDIDOS" />
+                  <HeaderBtn onClick={logout} label="SALIR" muted />
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <HeaderOutlineBtn onClick={onLogin} label="ENTRAR" />
+                  <HeaderOutlineBtn onClick={onRegister} label="REGISTRARSE" />
+                </div>
+              )
             )}
 
             {/* Cart */}
@@ -124,8 +144,122 @@ export default function Header({
                 }}>{cartCount}</span>
               )}
             </button>
+
+            {/* Hamburger (mobile only) */}
+            {isMobile && (
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: 5,
+                  width: 40,
+                  height: 40,
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  padding: 8,
+                  cursor: 'pointer',
+                }}
+              >
+                {menuOpen ? (
+                  <>
+                    <span style={{ display: 'block', width: 20, height: 2, background: '#fff', transform: 'rotate(45deg) translate(5px, 5px)', transition: 'transform 0.2s' }} />
+                    <span style={{ display: 'block', width: 20, height: 2, background: '#fff', opacity: 0 }} />
+                    <span style={{ display: 'block', width: 20, height: 2, background: '#fff', transform: 'rotate(-45deg) translate(5px, -5px)', transition: 'transform 0.2s' }} />
+                  </>
+                ) : (
+                  <>
+                    <span style={{ display: 'block', width: 20, height: 2, background: '#fff' }} />
+                    <span style={{ display: 'block', width: 20, height: 2, background: '#fff' }} />
+                    <span style={{ display: 'block', width: 20, height: 2, background: '#fff' }} />
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
+
+        {isMobile && menuOpen && (
+          <div
+            style={{
+              background: '#111',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              padding: '12px clamp(18px, 4vw, 52px) 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+            }}
+          >
+            {nav.map((n, i) => (
+              <button
+                key={i}
+                onClick={() => { n.onClick(); setMenuOpen(false); }}
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  color: n.active ? '#fff' : n.outlet ? THEME.sale : 'rgba(255,255,255,0.62)',
+                  padding: '12px 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.07)',
+                  textAlign: 'left',
+                  borderLeft: n.active ? `3px solid ${THEME.sale}` : '3px solid transparent',
+                  paddingLeft: 12,
+                  transition: 'color 0.12s',
+                }}
+              >
+                {n.label}
+              </button>
+            ))}
+            <input
+              value={query}
+              onChange={(e) => onSearch(e.target.value)}
+              onKeyDown={onSearchKey}
+              placeholder="Buscar..."
+              style={{
+                marginTop: 10,
+                width: '100%',
+                background: 'rgba(255,255,255,0.08)',
+                border: 'none',
+                borderBottom: '1px solid rgba(255,255,255,0.22)',
+                padding: '10px 9px',
+                fontSize: 14,
+                color: '#fff',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+
+            {/* Auth (mobile menu) */}
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              {token ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+                  {user?.avatar && (
+                    <img src={user.avatar} alt={user.name} style={{
+                      width: 28, height: 28, borderRadius: '50%', objectFit: 'cover',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                    }} />
+                  )}
+                  <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    {user?.name?.split(' ')[0] || 'Mi cuenta'}
+                  </span>
+                  {user?.role === 'admin' && (
+                    <HeaderBtn onClick={() => { onAdmin(); setMenuOpen(false); }} label="ADMIN" highlight />
+                  )}
+                  <HeaderBtn onClick={() => { onOrders(); setMenuOpen(false); }} label="PEDIDOS" />
+                  <HeaderBtn onClick={() => { logout(); setMenuOpen(false); }} label="SALIR" muted />
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <HeaderOutlineBtn onClick={() => { onLogin(); setMenuOpen(false); }} label="ENTRAR" />
+                  <HeaderOutlineBtn onClick={() => { onRegister(); setMenuOpen(false); }} label="REGISTRARSE" />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </header>
     </>
   );

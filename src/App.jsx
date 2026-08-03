@@ -24,7 +24,7 @@ import AdminPage from "./pages/AdminPage";
 import api from "./services/api";
 import { useAuthStore } from "./stores/authStore";
 
-const FREE_SHIP_FROM = 150000;
+const SHIPPING_FEE = 12900;
 const COUNTDOWN_DATE = "2026-07-26";
 
 function AppShell() {
@@ -63,7 +63,7 @@ function AppMain() {
           return {
             id: p.id,
             name: p.name,
-            cat: p.category,
+            cats: p.categories || [],
             gender: p.gender || ["U"],
             price: Number(p.price),
             old: p.previousPrice ? Number(p.previousPrice) : 0,
@@ -82,8 +82,30 @@ function AppMain() {
       .finally(() => setLoadingProducts(false));
   }, []);
 
+  // ── Configuración del sitio (banner outlet / envío gratis) ──
+  const [settings, setSettings] = useState({ outletDiscountPercent: null, freeShippingThreshold: null });
+
+  useEffect(() => {
+    api
+      .get("/settings")
+      .then((res) => setSettings({
+        outletDiscountPercent: res.data.outletDiscountPercent != null ? Number(res.data.outletDiscountPercent) : null,
+        freeShippingThreshold: res.data.freeShippingThreshold != null ? Number(res.data.freeShippingThreshold) : null,
+      }))
+      .catch(() => {});
+  }, []);
+
+  const freeShipFrom = settings.freeShippingThreshold;
+
+  const bannerText = useMemo(() => {
+    const parts = [];
+    if (settings.outletDiscountPercent != null) parts.push(`HASTA ${settings.outletDiscountPercent}% OFF`);
+    if (freeShipFrom != null) parts.push(`ENVÍO GRATIS DESDE ${fmt(freeShipFrom)}`);
+    return parts.length > 0 ? ["OUTLET", ...parts].join(" · ") : null;
+  }, [settings, freeShipFrom]);
+
   const findProduct = useCallback(
-    (id) => products.find((p) => p.id === id) || products[0] || { price: 0, old: 0, sizes: null, cat: "ropa", gender: ["U"], rating: 0, reviews: 0 },
+    (id) => products.find((p) => p.id === id) || products[0] || { price: 0, old: 0, sizes: null, cats: ["ropa"], gender: ["U"], rating: 0, reviews: 0 },
     [products],
   );
 
@@ -213,8 +235,8 @@ function AppMain() {
       return {
         id: p.id,
         name: p.name,
-        tile: CAT[p.cat],
-        catLabel: CAT[p.cat],
+        tile: CAT[p.cats?.[0]],
+        catLabel: CAT[p.cats?.[0]],
         img: p.img || "",
         noImg: !p.img,
         price: fmt(p.price),
@@ -258,7 +280,7 @@ function AppMain() {
     [state.cart, findProduct],
   );
   const shippingNum =
-    subtotalNum === 0 ? 0 : subtotalNum >= FREE_SHIP_FROM ? 0 : 12900;
+    subtotalNum === 0 ? 0 : freeShipFrom != null && subtotalNum >= freeShipFrom ? 0 : SHIPPING_FEE;
 
   const cartSummary = useMemo(() => {
     const items = state.cart.map((c, idx) => {
@@ -289,10 +311,10 @@ function AppMain() {
       hasSavings: savingsNum > 0,
       shipping: shippingNum === 0 ? "Gratis" : fmt(shippingNum),
       total: fmt(subtotalNum + shippingNum),
-      freeProg: Math.min(100, Math.round((subtotalNum / FREE_SHIP_FROM) * 100)),
-      freeRemaining: fmt(Math.max(0, FREE_SHIP_FROM - subtotalNum)),
-      hasRemaining: FREE_SHIP_FROM - subtotalNum > 0 && subtotalNum > 0,
-      reached: subtotalNum >= FREE_SHIP_FROM && subtotalNum > 0,
+      freeProg: freeShipFrom != null ? Math.min(100, Math.round((subtotalNum / freeShipFrom) * 100)) : 0,
+      freeRemaining: freeShipFrom != null ? fmt(Math.max(0, freeShipFrom - subtotalNum)) : "",
+      hasRemaining: freeShipFrom != null && freeShipFrom - subtotalNum > 0 && subtotalNum > 0,
+      reached: freeShipFrom != null && subtotalNum >= freeShipFrom && subtotalNum > 0,
       onCheckout: checkout,
       onShop: () => toCatalog("todos"),
     };
@@ -301,6 +323,7 @@ function AppMain() {
     subtotalNum,
     savingsNum,
     shippingNum,
+    freeShipFrom,
     findProduct,
     setQty,
     removeItem,
@@ -322,7 +345,9 @@ function AppMain() {
       active: state.color === colorName,
       onClick: () => setState((s) => ({ ...s, color: colorName })),
     }));
-    const related = products.filter((p) => p.cat === cp.cat && p.id !== cp.id)
+    const related = products.filter(
+        (p) => p.id !== cp.id && (p.cats || []).some((c) => (cp.cats || []).includes(c)),
+      )
       .slice(0, 4)
       .map((p) => vm(p));
 
@@ -340,14 +365,14 @@ function AppMain() {
       hasSizes: !!cp.sizes,
       sizes,
       colors,
-      desc: DESC[cp.cat],
+      desc: DESC[cp.cats?.[0]],
       qty: state.qty,
       onInc: () => setState((s) => ({ ...s, qty: s.qty + 1 })),
       onDec: () => setState((s) => ({ ...s, qty: Math.max(1, s.qty - 1) })),
       onAdd: () =>
         addToCart(cp.id, state.qty, cp.sizes ? state.size : null, cp.colors ? state.color : null),
       onHome: () => go("home"),
-      onCat: () => toCatalog(cp.cat),
+      onCat: () => toCatalog(cp.cats?.[0] || "todos"),
       related,
     };
   }, [
@@ -366,7 +391,7 @@ function AppMain() {
   const catalog = useMemo(() => {
     const q = (state.query || "").trim().toLowerCase();
     const filtered = products.filter((p) => {
-      const catOk = state.cat === "todos" || p.cat === state.cat;
+      const catOk = state.cat === "todos" || (p.cats || []).includes(state.cat);
       const genOk =
         state.gender === "todos" || (p.gender || ["U"]).includes(state.gender);
       const qOk = !q || p.name.toLowerCase().includes(q);
@@ -376,9 +401,9 @@ function AppMain() {
     const chipDef = [
       ["todos", "TODOS"],
       ["ropa", "ROPA"],
-      ["calzado", "CALZADO"],
       ["accesorios", "ACCESORIOS"],
       ["equipos", "EQUIPOS"],
+      ["outlet", "OUTLET"],
     ];
     const chips = chipDef.map(([cat, label]) => ({
       label,
@@ -422,15 +447,15 @@ function AppMain() {
       onView: () => sp.id && openProduct(sp.id),
     };
     const trust = [
-      {
-        icon: "→",
+      freeShipFrom != null && {
+        key: "shipping",
         title: "Envío gratis",
-        sub: `En pedidos desde ${fmt(FREE_SHIP_FROM)}`,
+        sub: `En pedidos desde ${fmt(freeShipFrom)}`,
       },
-      { icon: "↺", title: "30 días", sub: "Cambios y devoluciones" },
-      { icon: "✓", title: "Pago seguro", sub: "Cifrado en cada transacción" },
-      { icon: "★", title: "+12.000 clientes", sub: "Califican 4.8 / 5.0" },
-    ];
+      { key: "returns", title: "30 días", sub: "Cambios y devoluciones" },
+      { key: "secure", title: "Pago seguro", sub: "Cifrado en cada transacción" },
+      { key: "rating", title: "+12.000 clientes", sub: "Califican 4.8 / 5.0" },
+    ].filter(Boolean);
     const offerItems = products
       .filter((p) => p.old && p.old > p.price)
       .slice(0, 8)
@@ -441,9 +466,9 @@ function AppMain() {
       .map((p) => vm(p));
     const editTabDef = [
       { label: "ROPA", cat: "ropa" },
-      { label: "CALZADO", cat: "calzado" },
       { label: "ACCESORIOS", cat: "accesorios" },
       { label: "EQUIPOS", cat: "equipos" },
+      { label: "OUTLET", cat: "outlet" },
     ];
     const editTabs = editTabDef.map((et) => ({
       label: et.label,
@@ -451,7 +476,7 @@ function AppMain() {
       onClick: () => setState((s) => ({ ...s, editTab: et.cat })),
     }));
     const editItems = products
-      .filter((p) => p.cat === state.editTab)
+      .filter((p) => (p.cats || []).includes(state.editTab))
       .map((p) => vm(p));
     return {
       spotlight,
@@ -471,20 +496,17 @@ function AppMain() {
       onCampaignShop: () => toCatalog("ropa"),
       countdownDate: COUNTDOWN_DATE,
     };
-  }, [state.editTab, products, vm, openProduct, toCatalog]);
+  }, [state.editTab, products, vm, openProduct, toCatalog, freeShipFrom]);
 
   const nav = useMemo(() => {
     const navDef = [
       { label: "ROPA", cat: "ropa" },
-      { label: "CALZADO", cat: "calzado" },
       { label: "ACCESORIOS", cat: "accesorios" },
       { label: "EQUIPOS", cat: "equipos" },
-      { label: "OUTLET", cat: "todos", outlet: true },
+      { label: "OUTLET", cat: "outlet", outlet: true },
     ];
     return navDef.map((n) => {
-      const active =
-        (state.screen === "catalog" && state.cat === n.cat && !n.outlet) ||
-        (n.outlet && state.screen === "catalog" && state.cat === "todos");
+      const active = state.screen === "catalog" && state.cat === n.cat;
       return {
         label: n.label,
         active,
@@ -534,6 +556,7 @@ function AppMain() {
     >
       <Header
         nav={nav}
+        bannerText={bannerText}
         query={state.query}
         onSearch={onSearch}
         onSearchKey={onSearchKey}

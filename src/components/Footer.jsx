@@ -5,7 +5,7 @@ export default function Footer({ onLogo }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 32, marginBottom: 40 }}>
           <div>
             <button onClick={onLogo} style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16 }}>
-              <img src="/proshopLogo.png" alt="Pro Shop" style={{ height: 38, width: 38, objectFit: 'contain', borderRadius: 5, display: 'block' }} />
+              <img src="/proshopLogo.avif" alt="Pro Shop" style={{ height: 38, width: 38, objectFit: 'contain', borderRadius: 5, display: 'block' }} />
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 21, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff' }}>PRO SHOP</span>
             </button>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.48)', lineHeight: 1.7, maxWidth: '26ch', margin: 0 }}>Tu tienda de ropa deportiva, audio y accesorios. Calidad real para gente real.</p>

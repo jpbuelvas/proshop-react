@@ -3,10 +3,11 @@ import api from '../services/api';
 
 const EMPTY_PRODUCT = {
   name: '', description: '', price: '', previousPrice: '',
-  category: 'ropa', gender: ['U'], imageUrl: '',
+  categories: ['ropa'], gender: ['U'], imageUrl: '',
 };
 const EMPTY_VARIANT = { color: 'U', size: 'U', available: 0, specialPrice: '', imageUrl: '' };
-const CATEGORIES = ['ropa', 'calzado', 'accesorios', 'equipos', 'belleza', 'general', 'otro'];
+const CATEGORIES = ['ropa', 'accesorios', 'equipos', 'outlet'];
+const CATEGORY_LABEL = { ropa: 'Ropa', accesorios: 'Accesorios', equipos: 'Equipos', outlet: 'Outlet' };
 const GENDERS = ['U', 'M', 'W'];
 
 const STATUS_LABEL = { PENDING: 'Pendiente', APPROVED: 'Aprobado', DECLINED: 'Rechazado', SHIPPED: 'Enviado' };
@@ -220,7 +221,7 @@ function SyncModal({ onClose }) {
                 onError={(e) => { e.target.src = 'https://via.placeholder.com/36x36?text=?'; }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={S.logName}>{entry.name}</div>
-                <div style={S.logMeta}>{entry.category} - ${Number(entry.price).toLocaleString('es-CO')}</div>
+                <div style={S.logMeta}>{(entry.categories || []).join(', ')} - ${Number(entry.price).toLocaleString('es-CO')}</div>
               </div>
               <span style={{ ...S.logBadge, background: entry.action === 'creado' ? '#dcfce7' : '#f0f9ff', color: entry.action === 'creado' ? '#15803d' : '#0369a1' }}>
                 {entry.action === 'creado' ? 'NUEVO' : 'YA EXISTE'}
@@ -240,6 +241,69 @@ function SyncModal({ onClose }) {
         <style>{`@keyframes syncPulse { 0%,100% { width:30%;margin-left:0; } 50% { width:60%;margin-left:20%; } }`}</style>
       </div>
     </div>
+  );
+}
+
+// ── Ajustes Tab ──────────────────────────────────────────────────────────────
+function AjustesTab() {
+  const [form, setForm] = useState({ outletDiscountPercent: '', freeShippingThreshold: '' });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/settings');
+      setForm({
+        outletDiscountPercent: res.data.outletDiscountPercent ?? '',
+        freeShippingThreshold: res.data.freeShippingThreshold ?? '',
+      });
+    } catch { setError('Error cargando ajustes'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (e) => {
+    e.preventDefault(); setSaving(true); setError(''); setSuccess('');
+    try {
+      await api.put('/settings', {
+        outletDiscountPercent: form.outletDiscountPercent === '' ? null : Number(form.outletDiscountPercent),
+        freeShippingThreshold: form.freeShippingThreshold === '' ? null : Number(form.freeShippingThreshold),
+      });
+      setSuccess('Ajustes guardados');
+    } catch (err) { setError(err.response?.data?.message || 'Error al guardar'); }
+    finally { setSaving(false); }
+  };
+
+  if (loading) return <div style={S.center}>Cargando...</div>;
+
+  return (
+    <form onSubmit={save} style={{ ...S.form, maxWidth: 420 }}>
+      <p style={{ fontSize: 13, color: '#666', margin: '0 0 4px' }}>
+        Controla el mensaje de la barra superior del sitio (OUTLET · descuento · envío gratis).
+        Deja un campo vacío para que esa parte del mensaje no se muestre.
+      </p>
+      <label style={S.label}>
+        Descuento outlet (%)
+        <input style={S.input} type="number" min="0" max="100" step="1" placeholder="Ej: 40"
+          value={form.outletDiscountPercent}
+          onChange={(e) => setForm((f) => ({ ...f, outletDiscountPercent: e.target.value }))} />
+      </label>
+      <label style={S.label}>
+        Envío gratis desde ($)
+        <input style={S.input} type="number" min="0" step="1000" placeholder="Ej: 150000"
+          value={form.freeShippingThreshold}
+          onChange={(e) => setForm((f) => ({ ...f, freeShippingThreshold: e.target.value }))} />
+      </label>
+      {success && <div style={S.successBar}>{success}</div>}
+      {error && <div style={S.errorBar}>{error}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button type="submit" style={S.btnPrimary} disabled={saving}>{saving ? 'GUARDANDO...' : 'GUARDAR AJUSTES'}</button>
+      </div>
+    </form>
   );
 }
 
@@ -367,25 +431,28 @@ export default function AdminPage({ onClose }) {
 
   const openCreate = () => { setEditingProduct({ ...EMPTY_PRODUCT }); setVariants([{ ...EMPTY_VARIANT }]); setError(''); };
   const openEdit = (p) => {
-    setEditingProduct({ id: p.id, name: p.name, description: p.description || '', price: p.price, previousPrice: p.previousPrice || '', category: p.category, gender: p.gender || ['U'], imageUrl: p.imageUrl || '' });
+    setEditingProduct({ id: p.id, name: p.name, description: p.description || '', price: p.price, previousPrice: p.previousPrice || '', categories: p.categories || [], gender: p.gender || ['U'], imageUrl: p.imageUrl || '' });
     setVariants((p.variants || []).map((v) => ({ id: v.id, color: v.color, size: v.size, available: v.available, specialPrice: v.specialPrice || '', imageUrl: v.imageUrl || '' })));
     setError('');
   };
   const closeEdit = () => { setEditingProduct(null); setVariants([]); setError(''); };
   const handleField = (e) => { const { name, value } = e.target; setEditingProduct((p) => ({ ...p, [name]: value })); };
   const toggleGender = (g) => { setEditingProduct((p) => { const cur = p.gender || []; return { ...p, gender: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }; }); };
+  const toggleCategory = (c) => { setEditingProduct((p) => { const cur = p.categories || []; return { ...p, categories: cur.includes(c) ? cur.filter((x) => x !== c) : [...cur, c] }; }); };
   const handleVariantField = (idx, field, value) => { setVariants((vs) => vs.map((v, i) => i === idx ? { ...v, [field]: value } : v)); };
   const addVariant = () => setVariants((vs) => [...vs, { ...EMPTY_VARIANT }]);
   const removeVariant = (idx) => setVariants((vs) => vs.filter((_, i) => i !== idx));
 
   const save = async (e) => {
-    e.preventDefault(); setSaving(true); setError('');
+    e.preventDefault();
+    if (!(editingProduct.categories || []).length) { setError('Selecciona al menos una categoria'); return; }
+    setSaving(true); setError('');
     try {
       const body = {
         name: editingProduct.name, description: editingProduct.description || undefined,
         price: Number(editingProduct.price),
         previousPrice: editingProduct.previousPrice ? Number(editingProduct.previousPrice) : undefined,
-        category: editingProduct.category, gender: editingProduct.gender,
+        categories: editingProduct.categories, gender: editingProduct.gender,
         imageUrl: editingProduct.imageUrl || undefined,
         variants: variants.map((v) => ({ ...(v.id ? { id: v.id } : {}), color: v.color || 'U', size: v.size || 'U', available: Number(v.available) || 0, specialPrice: v.specialPrice ? Number(v.specialPrice) : undefined, imageUrl: v.imageUrl || undefined })),
       };
@@ -407,7 +474,7 @@ export default function AdminPage({ onClose }) {
           {/* Header */}
           <div style={S.panelHeader}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-              {[['productos', 'PRODUCTOS'], ['pedidos', 'PEDIDOS']].map(([key, label]) => (
+              {[['productos', 'PRODUCTOS'], ['pedidos', 'PEDIDOS'], ['ajustes', 'AJUSTES']].map(([key, label]) => (
                 <button key={key} style={{
                   padding: '10px 22px', fontSize: 13, fontWeight: 900, letterSpacing: '0.07em',
                   border: 'none', borderBottom: tab === key ? '3px solid #111' : '3px solid transparent',
@@ -441,7 +508,7 @@ export default function AdminPage({ onClose }) {
                       <tr key={p.id} style={S.tr}>
                         <td style={S.td}>{p.id}</td>
                         <td style={{ ...S.td, fontWeight: 600 }}>{p.name}</td>
-                        <td style={S.td}>{p.category}</td>
+                        <td style={S.td}>{(p.categories || []).map((c) => CATEGORY_LABEL[c] || c).join(', ')}</td>
                         <td style={S.td}>${Number(p.price).toLocaleString('es-CO')}</td>
                         <td style={S.td}>{(p.variants || []).length}</td>
                         <td style={{ ...S.td, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -463,7 +530,16 @@ export default function AdminPage({ onClose }) {
             <form onSubmit={save} style={S.form}>
               <div style={S.formGrid}>
                 <label style={S.label}>Nombre *<input style={S.input} name="name" value={editingProduct.name} onChange={handleField} required /></label>
-                <label style={S.label}>Categoria *<select style={S.input} name="category" value={editingProduct.category} onChange={handleField}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+                <div style={S.label}>Categorias * <span style={{ fontWeight: 500, textTransform: 'none', color: '#999' }}>(puede elegir varias)</span>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+                    {CATEGORIES.map((c) => (
+                      <label key={c} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                        <input type="checkbox" checked={(editingProduct.categories || []).includes(c)} onChange={() => toggleCategory(c)} />
+                        {CATEGORY_LABEL[c]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <label style={S.label}>Precio *<input style={S.input} name="price" type="number" min="0" step="100" value={editingProduct.price} onChange={handleField} required /></label>
                 <label style={S.label}>Precio anterior<input style={S.input} name="previousPrice" type="number" min="0" step="100" value={editingProduct.previousPrice} onChange={handleField} /></label>
                 <label style={S.label}>URL imagen<input style={S.input} name="imageUrl" value={editingProduct.imageUrl} onChange={handleField} placeholder="https://..." /></label>
@@ -507,6 +583,7 @@ export default function AdminPage({ onClose }) {
 
           {/* Tab Pedidos */}
           {tab === 'pedidos' && <PedidosTab />}
+          {tab === 'ajustes' && <AjustesTab />}
 
           {deleteConfirm && (
             <div style={S.confirmOverlay}>
