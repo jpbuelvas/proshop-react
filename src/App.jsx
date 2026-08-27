@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Cart from "./components/Cart";
 import Catalog from "./components/Catalog";
 import Footer from "./components/Footer";
@@ -26,20 +26,72 @@ import { useAuthStore } from "./stores/authStore";
 
 const SHIPPING_FEE = 12900;
 const COUNTDOWN_DATE = "2026-07-26";
+const CART_STORAGE_KEY = "proshop_cart";
+const FAVS_STORAGE_KEY = "proshop_favs";
+
+function loadStoredList(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function ProductNotFound({ onCatalog }) {
+  return (
+    <div style={{ padding: "80px 24px", textAlign: "center" }}>
+      <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: "clamp(2rem, 5vw, 3rem)", textTransform: "uppercase", margin: "0 0 12px" }}>
+        Producto no encontrado
+      </h1>
+      <p style={{ color: "#555", fontSize: 14, margin: "0 0 28px" }}>
+        Este producto ya no está disponible o el enlace es incorrecto.
+      </p>
+      <button
+        onClick={onCatalog}
+        style={{ padding: "14px 32px", background: "#111", color: "#fff", fontWeight: 700, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", border: "none", cursor: "pointer" }}
+      >
+        VER CATÁLOGO
+      </button>
+    </div>
+  );
+}
+
+function RouteNotFound({ onHome }) {
+  return (
+    <div style={{ padding: "100px 24px", textAlign: "center" }}>
+      <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: "clamp(2.6rem, 7vw, 4.4rem)", textTransform: "uppercase", margin: "0 0 12px" }}>
+        404
+      </h1>
+      <p style={{ color: "#555", fontSize: 15, margin: "0 0 28px" }}>
+        Esta página no existe.
+      </p>
+      <button
+        onClick={onHome}
+        style={{ padding: "14px 32px", background: "#111", color: "#fff", fontWeight: 700, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", border: "none", cursor: "pointer" }}
+      >
+        VOLVER AL INICIO
+      </button>
+    </div>
+  );
+}
 
 function AppShell() {
-  const location = useLocation();
-
-  if (location.pathname === "/auth/callback") {
-    return <AuthCallback />;
-  }
-
-  return <AppMain />;
+  return (
+    <Routes>
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/*" element={<AppMain />} />
+    </Routes>
+  );
 }
 
 function AppMain() {
   const { token, setUser, user } = useAuthStore();
   const [modal, setModal] = useState(null); // 'login' | 'register' | 'admin' | null
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Productos desde la BD ──────────────────────────────────
   const [products, setProducts] = useState([]);
@@ -119,19 +171,27 @@ function AppMain() {
     }
   }, [token]);
 
+  // ── Estado de catálogo / producto derivado de la URL ────────
+  const cat = searchParams.get("cat") || "todos";
+  const gender = searchParams.get("gender") || "todos";
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+
+  const pid = useMemo(() => {
+    const m = location.pathname.match(/^\/product\/(.+)$/);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : null;
+  }, [location.pathname]);
+
+  // ── Estado local (no reflejado en la URL) ───────────────────
   const [state, setState] = useState({
-    screen: window.location.pathname === "/orders" ? "orders" : "home",
-    cat: "todos",
-    pid: 1,
     qty: 1,
     size: "M",
     color: null,   // nombre del color seleccionado (string) o null si no aplica
-    cart: [],
-    favs: [],
+    cart: loadStoredList(CART_STORAGE_KEY),
+    favs: loadStoredList(FAVS_STORAGE_KEY),
     query: "",
-    toast: null,
     editTab: "ropa",
-    gender: "todos",
   });
 
   const [toast, setToast] = useState(null);
@@ -143,30 +203,64 @@ function AppMain() {
     toastTimer.current = setTimeout(() => setToast(null), 1900);
   }, []);
 
-  const go = useCallback((screen, extra = {}) => {
-    setState((s) => ({ ...s, ...extra, screen }));
+  // Al cambiar de página (no de query params) volver arriba, igual que antes.
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-  }, []);
+  }, [location.pathname]);
 
   const toCatalog = useCallback(
-    (cat) => {
-      go("catalog", { cat: cat || "todos", query: "", gender: "todos" });
+    (c) => {
+      const params = new URLSearchParams();
+      if (c && c !== "todos") params.set("cat", c);
+      navigate(params.toString() ? `/catalog?${params.toString()}` : "/catalog");
     },
-    [go],
+    [navigate],
   );
 
+  const setCat = useCallback((newCat) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!newCat || newCat === "todos") next.delete("cat"); else next.set("cat", newCat);
+      next.delete("page");
+      return next;
+    });
+  }, [setSearchParams]);
+
+  const setGender = useCallback((newGender) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!newGender || newGender === "todos") next.delete("gender"); else next.set("gender", newGender);
+      next.delete("page");
+      return next;
+    });
+  }, [setSearchParams]);
+
+  const setPage = useCallback((p) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (p <= 1) next.delete("page"); else next.set("page", String(p));
+      return next;
+    });
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [setSearchParams]);
+
   const openProduct = useCallback((id) => {
-    const p = findProduct(id);
+    navigate(`/product/${id}`);
+  }, [navigate]);
+
+  // Al entrar a un producto (o cuando ya cargaron los productos), resetear
+  // cantidad/talla/color seleccionados en base a la variante disponible.
+  useEffect(() => {
+    if (pid == null) return;
+    const p = products.find((pr) => pr.id === pid);
+    if (!p) return;
     setState((s) => ({
       ...s,
-      screen: "product",
-      pid: id,
       qty: 1,
       size: p.sizes ? p.sizes[0] : null,
-      color: p.colors ? p.colors[0] : null, // primer color disponible
+      color: p.colors ? p.colors[0] : null,
     }));
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }, [findProduct]);
+  }, [pid, products]);
 
   const addToCart = useCallback(
     (id, qty, size, color) => {
@@ -224,8 +318,8 @@ function AppMain() {
 
   const checkout = useCallback(() => {
     // Ir a la página de checkout real (Wompi)
-    go("checkout");
-  }, [go]);
+    navigate("/checkout");
+  }, [navigate]);
 
   const vm = useCallback(
     (p) => {
@@ -331,8 +425,13 @@ function AppMain() {
     toCatalog,
   ]);
 
+  const productExists = useMemo(
+    () => pid != null && products.some((p) => p.id === pid),
+    [products, pid],
+  );
+
   const product = useMemo(() => {
-    const cp = findProduct(state.pid);
+    const cp = findProduct(pid);
     const sizes = (cp.sizes || []).map((sz) => ({
       label: sz,
       active: state.size === sz,
@@ -371,12 +470,12 @@ function AppMain() {
       onDec: () => setState((s) => ({ ...s, qty: Math.max(1, s.qty - 1) })),
       onAdd: () =>
         addToCart(cp.id, state.qty, cp.sizes ? state.size : null, cp.colors ? state.color : null),
-      onHome: () => go("home"),
+      onHome: () => navigate("/"),
       onCat: () => toCatalog(cp.cats?.[0] || "todos"),
       related,
     };
   }, [
-    state.pid,
+    pid,
     state.size,
     state.color,
     state.qty,
@@ -385,19 +484,26 @@ function AppMain() {
     vm,
     addToCart,
     toCatalog,
-    go,
+    navigate,
   ]);
 
   const catalog = useMemo(() => {
     const q = (state.query || "").trim().toLowerCase();
     const filtered = products.filter((p) => {
-      const catOk = state.cat === "todos" || (p.cats || []).includes(state.cat);
+      const catOk = cat === "todos" || (p.cats || []).includes(cat);
       const genOk =
-        state.gender === "todos" || (p.gender || ["U"]).includes(state.gender);
+        gender === "todos" || (p.gender || ["U"]).includes(gender);
       const qOk = !q || p.name.toLowerCase().includes(q);
       return catOk && genOk && qOk;
     });
     const catalogItems = filtered.map((p) => vm(p));
+    const PAGE_SIZE = 12;
+    const totalPages = Math.max(1, Math.ceil(catalogItems.length / PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages);
+    const pageItems = catalogItems.slice(
+      (currentPage - 1) * PAGE_SIZE,
+      currentPage * PAGE_SIZE,
+    );
     const chipDef = [
       ["todos", "TODOS"],
       ["ropa", "ROPA"],
@@ -405,10 +511,10 @@ function AppMain() {
       ["equipos", "EQUIPOS"],
       ["outlet", "OUTLET"],
     ];
-    const chips = chipDef.map(([cat, label]) => ({
+    const chips = chipDef.map(([c, label]) => ({
       label,
-      active: state.cat === cat,
-      onClick: () => setState((s) => ({ ...s, cat })),
+      active: cat === c,
+      onClick: () => setCat(c),
     }));
     const genderChips = [
       { label: "TODOS", value: "todos" },
@@ -417,25 +523,27 @@ function AppMain() {
       { label: "UNISEX", value: "U" },
     ].map((g) => ({
       label: g.label,
-      active: state.gender === g.value,
-      onClick: () => setState((s) => ({ ...s, gender: g.value })),
+      active: gender === g.value,
+      onClick: () => setGender(g.value),
     }));
     const catLabel =
-      state.cat === "todos"
+      cat === "todos"
         ? "TODOS LOS PRODUCTOS"
-        : (CAT[state.cat] || "").toUpperCase();
+        : (CAT[cat] || "").toUpperCase();
     return {
       title: catLabel,
-      catLabel:
-        state.cat === "todos" ? "TODOS" : (CAT[state.cat] || "").toUpperCase(),
+      catLabel: cat === "todos" ? "TODOS" : (CAT[cat] || "").toUpperCase(),
       count: catalogItems.length,
       chips,
       genderChips,
-      items: catalogItems,
+      items: pageItems,
       hasItems: catalogItems.length > 0,
       empty: catalogItems.length === 0,
+      page: currentPage,
+      totalPages,
+      onPageChange: setPage,
     };
-  }, [state.cat, state.gender, state.query, products, vm]);
+  }, [cat, gender, state.query, page, products, vm, setCat, setGender, setPage]);
 
   const homeData = useMemo(() => {
     const sp = products[0] || { price: 0, old: 0, id: null };
@@ -506,7 +614,7 @@ function AppMain() {
       { label: "OUTLET", cat: "outlet", outlet: true },
     ];
     return navDef.map((n) => {
-      const active = state.screen === "catalog" && state.cat === n.cat;
+      const active = location.pathname === "/catalog" && cat === n.cat;
       return {
         label: n.label,
         active,
@@ -514,26 +622,38 @@ function AppMain() {
         onClick: () => toCatalog(n.cat),
       };
     });
-  }, [state.screen, state.cat, toCatalog]);
+  }, [location.pathname, cat, toCatalog]);
 
   const onSearch = useCallback((value) => {
-    setState((s) => ({
-      ...s,
-      query: value,
-      screen: value && s.screen === "home" ? "catalog" : s.screen,
-    }));
-  }, []);
+    setState((s) => ({ ...s, query: value }));
+    if (value && location.pathname !== "/catalog") {
+      navigate("/catalog");
+    }
+  }, [location.pathname, navigate]);
 
   const onSearchKey = useCallback((e) => {
-    if (e.key === "Enter") {
-      setState((s) => ({ ...s, screen: "catalog" }));
+    if (e.key === "Enter" && location.pathname !== "/catalog") {
+      navigate("/catalog");
       window.scrollTo({ top: 0, behavior: "auto" });
     }
-  }, []);
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     return () => clearTimeout(toastTimer.current);
   }, []);
+
+  // Persistir carrito y favoritos para que sobrevivan a un refresh de página
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.cart));
+    } catch {}
+  }, [state.cart]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FAVS_STORAGE_KEY, JSON.stringify(state.favs));
+    } catch {}
+  }, [state.favs]);
 
   if (loadingProducts) {
     return (
@@ -560,9 +680,9 @@ function AppMain() {
         query={state.query}
         onSearch={onSearch}
         onSearchKey={onSearchKey}
-        onLogo={() => go("home")}
-        onCart={() => go("cart")}
-        onOrders={() => go("orders")}
+        onLogo={() => navigate("/")}
+        onCart={() => navigate("/cart")}
+        onOrders={() => navigate("/orders")}
         onSidebar={() => toCatalog("todos")}
         cartCount={cartCount}
         hasCart={cartCount > 0}
@@ -571,43 +691,52 @@ function AppMain() {
         onAdmin={() => setModal('admin')}
       />
       <main style={{ flex: 1 }}>
-        {state.screen === "home" && <Home data={homeData} />}
-        {state.screen === "catalog" && (
-          <Catalog data={catalog} onHome={() => go("home")} />
-        )}
-        {state.screen === "product" && <ProductPage data={product} />}
-        {state.screen === "cart" && <Cart data={cartSummary} />}
-        {state.screen === "checkout" && (
-          <CheckoutPage
-            cartItems={state.cart.map((c) => ({
-              id: c.id,
-              qty: c.qty,
-              price: findProduct(c.id).price,
-              size: c.size,
-              color: c.color,
-            }))}
-            total={subtotalNum + shippingNum}
-            onBack={() => go("cart")}
-            onSuccess={() => { setState((s) => ({ ...s, cart: [] })); go("orders"); }}
+        <Routes>
+          <Route path="/" element={<Home data={homeData} />} />
+          <Route path="/catalog" element={<Catalog data={catalog} onHome={() => navigate("/")} />} />
+          <Route
+            path="/product/:id"
+            element={
+              productExists
+                ? <ProductPage data={product} />
+                : <ProductNotFound onCatalog={() => toCatalog("todos")} />
+            }
           />
-        )}
-        {state.screen === "orders" && (
-          <OrderHistory onHome={() => go("home")} />
-        )}
+          <Route path="/cart" element={<Cart data={cartSummary} />} />
+          <Route
+            path="/checkout"
+            element={
+              <CheckoutPage
+                cartItems={state.cart.map((c) => ({
+                  id: c.id,
+                  qty: c.qty,
+                  price: findProduct(c.id).price,
+                  size: c.size,
+                  color: c.color,
+                }))}
+                total={subtotalNum + shippingNum}
+                onBack={() => navigate("/cart")}
+                onSuccess={() => { setState((s) => ({ ...s, cart: [] })); navigate("/orders"); }}
+              />
+            }
+          />
+          <Route path="/orders" element={<OrderHistory onHome={() => navigate("/")} />} />
+          <Route path="*" element={<RouteNotFound onHome={() => navigate("/")} />} />
+        </Routes>
       </main>
-      <Footer onLogo={() => go("home")} />
+      <Footer onLogo={() => navigate("/")} />
 
       {/* Modales auth / admin */}
       {modal === 'login' && (
         <LoginPage
-          onSuccess={() => setModal(null)}
+          onSuccess={() => { setModal(null); flash('SESIÓN INICIADA'); }}
           onGoRegister={() => setModal('register')}
           onClose={() => setModal(null)}
         />
       )}
       {modal === 'register' && (
         <RegisterPage
-          onSuccess={() => setModal(null)}
+          onSuccess={() => { setModal(null); flash('CUENTA CREADA — ¡BIENVENIDO!'); }}
           onGoLogin={() => setModal('login')}
           onClose={() => setModal(null)}
         />

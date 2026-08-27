@@ -9,6 +9,7 @@ export default function RegisterPage({ onSuccess, onGoLogin, onClose }) {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successName, setSuccessName] = useState('');
 
   const handle = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -20,13 +21,29 @@ export default function RegisterPage({ onSuccess, onGoLogin, onClose }) {
       const res = await api.post('/auth/register', form);
       setToken(res.data.token);
       setUser(res.data.user);
-      onSuccess?.();
+      setSuccessName(res.data.user?.name?.split(' ')[0] || '');
     } catch (err) {
       setError(err.response?.data?.message || 'Error al registrarse');
     } finally {
       setLoading(false);
     }
   };
+
+  if (successName) {
+    return (
+      <div style={styles.overlay} onClick={onClose}>
+        <div style={styles.card} onClick={(e) => e.stopPropagation()}>
+          <button style={styles.close} onClick={onClose}>✕</button>
+          <div style={styles.successWrap}>
+            <SuccessIcon />
+            <h2 style={styles.successTitle}>CUENTA CREADA</h2>
+            <p style={styles.successText}>¡Bienvenido, {successName}! Ya estás dentro.</p>
+            <button style={{ ...styles.btn, width: '100%' }} onClick={onSuccess}>CONTINUAR</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.overlay} onClick={onClose}>
@@ -63,7 +80,12 @@ export default function RegisterPage({ onSuccess, onGoLogin, onClose }) {
             minLength={6}
             required
           />
-          {error && <p style={styles.error}>{error}</p>}
+          {error && (
+            <div style={styles.errorBanner}>
+              <ErrorIcon />
+              <p style={styles.errorText}>{error}</p>
+            </div>
+          )}
           <button style={styles.btn} type="submit" disabled={loading}>
             {loading ? 'CREANDO CUENTA...' : 'CREAR CUENTA'}
           </button>
@@ -81,6 +103,25 @@ export default function RegisterPage({ onSuccess, onGoLogin, onClose }) {
         </p>
       </div>
     </div>
+  );
+}
+
+function SuccessIcon() {
+  return (
+    <svg width="52" height="52" viewBox="0 0 52 52" style={{ marginBottom: 18 }}>
+      <circle cx="26" cy="26" r="25" fill="none" stroke="#111" strokeWidth="2" />
+      <path d="M15 27l7 7 15-15" fill="none" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ErrorIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" style={{ flexShrink: 0, marginTop: 2 }}>
+      <circle cx="8" cy="8" r="7" fill="none" stroke="#c8102e" strokeWidth="1.6" />
+      <line x1="8" y1="4.5" x2="8" y2="8.5" stroke="#c8102e" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="8" cy="11.2" r="0.9" fill="#c8102e" />
+    </svg>
   );
 }
 
@@ -117,7 +158,20 @@ const styles = {
     border: '1.5px solid #ddd', padding: '12px 14px', fontSize: 14,
     fontFamily: "'Hanken Grotesk', sans-serif", outline: 'none',
   },
-  error: { color: '#e53e3e', fontSize: 13, margin: 0 },
+  errorBanner: {
+    display: 'flex', alignItems: 'flex-start', gap: 9,
+    background: '#fce8e6', padding: '12px 14px',
+  },
+  errorText: { color: '#c8102e', fontSize: 13.5, fontWeight: 600, margin: 0, lineHeight: 1.4 },
+  successWrap: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    textAlign: 'center', padding: '8px 0 4px',
+  },
+  successTitle: {
+    fontFamily: "'Hanken Grotesk', sans-serif", fontSize: 20, fontWeight: 800,
+    letterSpacing: '0.08em', margin: '0 0 8px', textTransform: 'uppercase',
+  },
+  successText: { fontSize: 13, color: '#666', margin: '0 0 28px', lineHeight: 1.5 },
   btn: {
     background: '#111', color: '#fff', border: 'none', padding: '13px',
     fontWeight: 800, fontSize: 13, letterSpacing: '0.08em', cursor: 'pointer',

@@ -1,7 +1,10 @@
 import ProductCard from './ProductCard';
 
 export default function Catalog({ data, onHome }) {
-  const { title, catLabel, count, chips, genderChips, items, hasItems, empty } = data;
+  const {
+    title, catLabel, count, chips, genderChips, items, hasItems, empty,
+    page, totalPages, onPageChange,
+  } = data;
 
   return (
     <section style={{ padding: 'clamp(28px, 4vw, 48px) 0' }}>
@@ -73,7 +76,67 @@ export default function Catalog({ data, onHome }) {
             NO ENCONTRAMOS PRODUCTOS
           </div>
         )}
+
+        {hasItems && totalPages > 1 && (
+          <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
+        )}
       </div>
     </section>
   );
+}
+
+function Pagination({ page, totalPages, onPageChange }) {
+  const pages = getPageList(page, totalPages);
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 48 }}>
+      <PageBtn onClick={() => onPageChange(page - 1)} disabled={page <= 1}>‹</PageBtn>
+      {pages.map((p, i) =>
+        p === '...' ? (
+          <span key={`e${i}`} style={{ padding: '0 4px', fontSize: 14, color: '#999', fontWeight: 700 }}>...</span>
+        ) : (
+          <PageBtn key={p} onClick={() => onPageChange(p)} active={p === page}>{p}</PageBtn>
+        ),
+      )}
+      <PageBtn onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>›</PageBtn>
+    </div>
+  );
+}
+
+function PageBtn({ onClick, active, disabled, children }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        minWidth: 40,
+        height: 40,
+        padding: '0 10px',
+        fontWeight: 700,
+        fontSize: 14,
+        letterSpacing: '0.02em',
+        border: `1.5px solid ${active ? '#111' : '#c4c4c4'}`,
+        background: active ? '#111' : '#fff',
+        color: disabled ? '#c4c4c4' : active ? '#fff' : '#111',
+        cursor: disabled ? 'default' : 'pointer',
+        transition: 'all 0.12s',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function getPageList(page, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages = new Set([1, totalPages, page, page - 1, page + 1]);
+  const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+  const result = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) result.push('...');
+    result.push(p);
+  });
+  return result;
 }

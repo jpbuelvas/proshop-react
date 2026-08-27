@@ -7,4 +7,9 @@ export default defineConfig({
     host: true,
     allowedHosts: true,
   },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: "./src/test/setup.js",
+  },
 });
