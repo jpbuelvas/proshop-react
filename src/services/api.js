@@ -17,7 +17,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isAuthAttempt = ['/auth/login', '/auth/register'].some((path) =>
+      err.config?.url?.includes(path),
+    );
+    if (err.response?.status === 401 && !isAuthAttempt) {
       localStorage.removeItem('token');
       window.location.href = '/';
     }
